@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -18,7 +19,7 @@ class ExtratorTests(unittest.TestCase):
         self.home.mkdir()
 
     def banco(self, rows=(), optional=True):
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute('CREATE TABLE sessions (id TEXT PRIMARY KEY' +
                        (', source TEXT, title TEXT' if optional else '') + ')')
             db.execute('CREATE TABLE messages (id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, content TEXT' +
@@ -55,7 +56,7 @@ class ExtratorTests(unittest.TestCase):
                 (2, 's', 'user', 'Mesmo pedido', 1),
                 (3, 's', 'user', 'Mesmo pedido', 2)]
         self.banco(rows)
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute("UPDATE sessions SET source='subagent'")
         result = extractor.extract(self.home)
         self.assertEqual(len(result['items']), 2)
@@ -85,7 +86,7 @@ class ExtratorTests(unittest.TestCase):
         result = extractor.extract(self.home)
         self.assertEqual(result['coverage']['status'], 'error')
         self.assertEqual(result['coverage']['failures'][0]['code'], 'database_missing')
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute('CREATE TABLE messages (id INTEGER, content TEXT)')
         result = extractor.extract(self.home)
         self.assertEqual(result['coverage']['status'], 'error')
@@ -142,7 +143,7 @@ class ExtratorTests(unittest.TestCase):
         self.assertNotIn('Não ler sensível', json.dumps(result, ensure_ascii=False))
         self.assertGreaterEqual(len(result['coverage']['failures']), 2)
         (self.home / 'state.db').unlink()
-        with sqlite3.connect(external / 'state.db') as db:
+        with closing(sqlite3.connect(external / 'state.db')) as db, db:
             db.execute('CREATE TABLE proibida (id INTEGER)')
         (self.home / 'state.db').symlink_to(external / 'state.db')
         self.assertEqual(extractor.extract(self.home)['coverage']['failures'][0]['code'], 'symlink_rejected')
@@ -163,7 +164,7 @@ class ExtratorTests(unittest.TestCase):
                    'AIza' + 'D' * 35, 'valor-sintetico-chave', 'credencial-bearer-sintetica']
         payload = '\n'.join(secrets[:4]) + '\napi_key="' + secrets[4] + '"\nAuthorization: Bearer ' + secrets[5]
         self.banco([(1, 's', 'user', payload, 1)])
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute('UPDATE sessions SET id=?, title=?', (secrets[0], payload))
             db.execute('UPDATE messages SET session_id=?', (secrets[0],))
         self.arquivo('skills/' + secrets[1] + '/SKILL.md', payload)
@@ -177,7 +178,7 @@ class ExtratorTests(unittest.TestCase):
     def test_contexto_limitado_sem_respostas_ou_raciocinio(self):
         self.banco([(1, 's', 'user', 'Pedido', 1),
                     (2, 's', 'assistant', 'Nao usar resposta', 2)])
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute('UPDATE sessions SET title=?', ('T' * 2000,))
         result = extractor.extract(self.home)
         self.assertLessEqual(len(result['items'][0]['context']), 512)
@@ -211,7 +212,7 @@ class ExtratorTests(unittest.TestCase):
 
     def test_redaction_de_contexto_e_idempotente(self):
         self.banco([(1, 's', 'user', 'Pedido', 1)])
-        with sqlite3.connect(self.home / 'state.db') as db:
+        with closing(sqlite3.connect(self.home / 'state.db')) as db, db:
             db.execute('UPDATE sessions SET title=?', ('Authorization: Bearer ' + 'Z' * 24,))
         item = extractor.extract(self.home)['items'][0]
         self.assertTrue(item['context'].endswith('[REDACTED]'), 'Marcador de redaction único')

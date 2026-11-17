@@ -43,7 +43,7 @@ def fixture(status=200, body=b'{"models":[]}', headers=None, slow=False):
                         time.sleep(0.04)
                 else:
                     self.wfile.write(body)
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:
                 pass
 
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
