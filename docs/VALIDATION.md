@@ -1,15 +1,27 @@
-# Evidências e limites de validação
+# Validação e limites
 
-## Distribuição pública
+## Reprodução offline
 
-A suíte offline contém 40 testes stdlib de extrator, transporte HTTP em loopback, CLI, classificação/checkpoints/exportação e segurança. A revisão pré-publicação executa a árvore staged em ambiente limpo, sem chave real, modelos ou instalação de pacotes. O workflow `tests` executa os mesmos testes nos sistemas indicados; o status do commit no GitHub é a evidência remota, não uma promessa deste texto.
+```bash
+python3 -m unittest discover -s tests -v
+```
 
-Os testes verificam requisições HTTP reais **sintéticas**, ausência de redirects e proxies herdados, erros sem eco, limites, corpo gotejado, extração SQLite/query_only, preservação de textos, cobertura bloqueante e retomada sem replay.
+Testes stdlib com fixtures: HTTP real em loopback, SQLite sintético, extração, cobertura, redação por padrões, JSON estrito, limites/deadline, bloqueio de redirects/proxies, checkpoints, retomada, classificação completa e pacote ZIP. As regressões de entrada cobrem CLIENT versus AGENT, orientação segura, autorização explícita de envio e identidade do perfil. Testes não leem perfis/configurações reais nem usam chave do serviço.
 
-## Inferência real anterior à publicação
+O CI executa o mesmo comando em Linux, Windows e macOS; a conclusão associada ao commit no GitHub é a evidência remota. Bits POSIX são conferidos somente em POSIX; Windows requer ACLs e testes de empacotamento próprios, não chmod como prova de privacidade.
 
-O mecanismo de origem foi exercitado via relay público autorizado, com conteúdo exclusivamente sintético: cinco exemplos tiveram os rótulos esperados, e seis itens de um Hermes sintético percorreram extração → API → datasets sem falhas. Uma cópia extraída com HOME vazio também completou esse circuito. Os comprovantes privados não são publicados porque podem conter metadados operacionais.
+## Origem e integração
 
-A preparação pública não altera o corpo de transporte, o extrator ou o classificador validado. Esses ensaios ocorreram no host de desenvolvimento acessando uma URL pública; **não** comprovam origem em outra máquina física, qualquer API nova, qualidade geral, execução com acervo real ou ausência universal de dados sensíveis.
+Esta atualização incorporou partes revisadas do pacote de código fornecido pelo proprietário e corrigiu entrada, documentação e empacotamento. O fluxo legado de transporte e extração tem evidências históricas de uso pelo relay público com corpus sintético; isso não homologa automaticamente a nova campanha completa em todos os computadores.
 
-A API de cada consumidor precisa passar pelo `verify` próprio. O CI não usa inferência real nem segredos. Rótulos são provisórios; scores não são probabilidades calibradas. A precisão no seu acervo exige revisão humana/calibração separadas.
+A validação desta atualização usa fixtures e cópia limpa. Não classifica o histórico real do proprietário para testar a publicação. O comando verify permite um smoke público sintético opcional quando o operador autorizar; classify-all não o dispara implicitamente.
+
+## Não confundir
+
+- Suíte verde ou ZIP com CRC íntegro não certifica precisão dos rótulos.
+- Cliente no PC dos modelos acessando hostname público não comprova origem em outro computador/rede.
+- Dados sanitizados por padrões não são anônimos por garantia.
+- ZIP e exportações parciais não são campanha concluída; verificar cobertura e failed=0.
+- Instalar/habilitar serviços do servidor não faz parte deste cliente portátil.
+
+Todos os rótulos são provisórios. Revisão humana/calibração do acervo é uma etapa distinta.

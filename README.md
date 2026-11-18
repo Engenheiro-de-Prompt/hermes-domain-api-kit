@@ -1,51 +1,95 @@
 # Hermes Domain API Kit
 
-**Entregue este link a outro Hermes e uma API de classificação compatível.** O agente prepara a execução no computador de destino, extrai as fontes locais autorizadas e classifica sua finalidade sem instalar modelos ou trocar o LLM principal do Hermes.
+**Classifique pedidos, skills e memórias do seu Hermes em pessoal ou profissional — sem instalar modelos no outro PC.**
 
-Categorias: **pessoal · profissional · misto · compartilhado · indeterminado**.
+O kit também separa **misto**, **compartilhado** e **indeterminado** para não forçar uma classificação sem evidência. Entrega CSV, cinco JSONL, resumo e um ZIP privado.
 
-## Comece aqui
+## Qual computador faz o quê?
 
-1. Copie o [prompt pronto para outro Hermes](COMECE_AQUI.md).
-2. Informe a **URL base HTTPS** da sua API e disponibilize uma **chave CLIENT por arquivo privado ou prompt local sem eco** — não no chat nem neste repositório.
-3. O Hermes lê `AGENTS.md`, verifica Python, testa o cliente e a API com exemplos sintéticos, extrai o perfil escolhido e executa a amostra ou campanha autorizada.
-4. Receba o resumo e os caminhos privados dos cinco datasets e do CSV.
+| Computador consumidor — este kit | Computador dos modelos |
+|---|---|
+| Lê o perfil Hermes escolhido e organiza os resultados | Executa os modelos e devolve as classificações |
+| Precisa somente de Python 3.11+ | Precisa do gateway e do conector ativos |
+| Usa uma chave **CLIENT** | O conector usa uma chave **AGENT** distinta |
 
-Não há conta, endereço de servidor, modelo instalado ou chave do autor embutidos. Só Python **3.11+** e biblioteca padrão. Git serve para clonar; um ZIP do GitHub também funciona. Em Windows, use `py -3` ou `python` no lugar de `python3`. Não instale pacotes com pip.
+O texto autorizado passa por um relay HTTPS. A inferência é local **ao servidor**, não ao computador consumidor. Este repositório é o **cliente**, não instala nem configura o servidor.
+
+## Começar em 3 passos
+
+### 1. Baixe e confira
 
 ```bash
 git clone https://github.com/Engenheiro-de-Prompt/hermes-domain-api-kit.git
 cd hermes-domain-api-kit
 python3 -m unittest discover -s tests -v
-python3 cli.py --help
 ```
 
-## O que entra e sai
+**Windows:** use `py -3` no lugar de `python3` e, no PowerShell, configure `$env:PYTHONUTF8 = '1'`. Sem Git, baixe **Code → Download ZIP**, extraia e abra um terminal dentro da pasta. Não precisa de pip, GPU, Ollama ou modelos neste PC.
 
-| Entrada local selecionada | Tratamento |
+### 2. Tenha uma chave CLIENT
+
+Gere/obtenha uma chave de **cliente** no painel da API. **Não use AGENT, OpenAI ou a chave interna do gateway.** Não envie a chave pelo chat nem a grave no repositório.
+
+O comando pede a chave em um **prompt local sem eco**. Em execução por outro agente/sem terminal, provisione um arquivo privado e acrescente `--key-file "/caminho/privado/client.key"`. [Como configurar no Linux e Windows](docs/USAGE.md#credencial).
+
+A URL pública fornecida no pacote já está configurada: `https://homegrown-ai-bridge.lovable.app/api/public/v1`. Para outro serviço compatível, use `--base-url URL` ou `HERMES_CLASSIFIER_API_BASE`. Nenhuma chave é embutida.
+
+### 3. Classifique
+
+**Este comando envia o escopo completo do perfil selecionado ao relay.** Execute somente com autorização para esse envio:
+
+```bash
+python3 cli.py classify-all --allow-relay --work ../minha-classificacao
+```
+
+O kit usa `HERMES_HOME` ou, se ausente, `~/.hermes`. Para escolher explicitamente outro perfil, acrescente `--home "/caminho/do/perfil"`. Não explora perfis irmãos.
+
+**Pronto:** veja `../minha-classificacao/classification_bundle.zip`. É um arquivo de **resultados privados**, não uma nova distribuição do código. Não o publique no GitHub.
+
+## O que acontece nesse comando?
+
+1. Valida URL e credencial; chave AGENT é recusada antes da extração.
+2. Informa a pasta da campanha e extrai as fontes suportadas, verificando cobertura.
+3. Consulta o catálogo e seleciona CLEF anunciado, preferindo Flash quando disponível.
+4. Classifica o acervo, exibe contagens e salva checkpoints.
+5. Exporta CSV/JSONL/resumo e empacota somente os resultados permitidos.
+
+Não executa exemplos sintéticos antes da campanha. `verify` é um diagnóstico sintético **opcional**, disponível sem ler seu histórico. O modelo principal do Hermes não é alterado.
+
+## Interrompeu? Não comece do zero
+
+Repita o mesmo comando com o **mesmo `--work`, perfil, URL e modelo**. O kit reaproveita decisões registradas sem reenviar inferências já tentadas. Falhas e resultados desconhecidos continuam visíveis; não há retry silencioso.
+
+Sem `--work`, cada execução cria uma pasta nova em `~/.local/share/hermes-domain-api-kit/runs/`; o caminho aparece no início. Guarde-o para retomar. Se alterar a campanha ou quiser deliberadamente tentar uma falha de novo, use outra pasta.
+
+## Algo não funcionou?
+
+| Mensagem | O que fazer |
 |---|---|
-| `state.db` do Hermes | Pedidos `user`, com referências; não respostas do assistente/ferramentas |
-| `skills/` | Markdown e referências/templates textuais suportados; nenhum script executado |
-| `memories/MEMORY.md`, `memories/USER.md` e variantes na raiz | Fatos/seções de memória |
+| `invalid_key` | Use **CLIENT**, não AGENT; arquivo sem `Bearer` ou aspas |
+| `key_not_provisioned` | Provisione `--key-file` ou execute em terminal local seguro |
+| `http_401` / `http_403` | Verifique validade, papel e permissão da chave |
+| `http_504` | O operador verifica conector/backend no **PC dos modelos** |
+| `source_home_mismatch` | A pasta pertence a outro perfil ou snapshot antigo; não misture campanhas |
+| `campaign_mismatch` | Preserve as opções originais ou escolha outro `--work` |
 
-Não explora perfis irmãos, não instala skill global, não lê `.env` ou configuração de autenticação e não importa credenciais de outro agente. Extrair uma conversa pode incluir dados sensíveis escritos pelo próprio usuário: a redação automática é limitada a formatos conhecidos e **não é anonimização garantida**.
+A CLI devolve `error` e uma orientação `hint`, sem ecoar segredos. [Diagnóstico completo](docs/USAGE.md#diagnostico).
 
-Saídas **fora do checkout**: `corpus.json`, cobertura, checkpoints SQLite, `classification/summary.json`, `classification/dataset.csv` e `classification/datasets/<categoria>.jsonl`. Todos os rótulos são provisórios. Falhas permanecem no relatório, sem retries silenciosos.
+## Quero passar só o link para outro Hermes
 
-## API exigida
+Use o [prompt pronto em COMECE_AQUI.md](COMECE_AQUI.md). Ele explica os padrões, o papel da chave e a entrega esperada; não dá acesso automático a dados nem autoriza enviar um perfil por si só.
 
-É um cliente do contrato **relay + classificação CLEF**, não de qualquer endpoint OpenAI/chat. A API precisa oferecer `GET /models`, modelos anunciados com `task=classification` e `POST /classifications`. Consulte o [contrato e comandos completos](docs/USAGE.md).
+## Escopo e limites
 
-Uma nova URL/chave da mesma família não exige editar código. Outro protocolo ou tipo de classificador exige um adaptador explícito; o agente não deve inventar respostas nem fazer fallback para chat.
+- **Inclui:** pedidos `user` do `state.db`, skills/referências textuais suportadas e memórias do perfil selecionado.
+- **Exclui:** respostas do assistente, mensagens de ferramenta, prompts de sistema/raciocínio, credenciais/configurações e outros perfis. Não é inventário completo de todas as funções executadas pelo agente.
+- A redação de padrões conhecidos **não garante anonimização**. CSV/JSONL contêm texto privado.
+- SQLite: leitura de dados/esquema; WAL/SHM podem ser criados ou atualizados. Não é aquisição forense de pasta imutável.
+- Rótulos são provisórios; scores não são probabilidades calibradas. Testes não certificam precisão no seu acervo.
+- API exigida: contrato relay/CLEF (`GET /models`, `POST /classifications`), não qualquer API de chat.
 
-## Privacidade e limites
-
-- Inferência acontece no servidor remoto. O texto autorizado passa pelo relay hospedado: isso **não** é processamento exclusivamente local.
-- `extract` é local; `run` exige `--allow-relay`. O ensaio `verify` envia apenas exemplos sintéticos.
-- SQL em modo somente leitura de dados/esquema. O SQLite pode criar/atualizar sidecars WAL/SHM; não é aquisição forense de pasta imutável.
-- Não há homologação automática de qualquer API, hardware ou qualidade de classificação. O smoke não substitui revisão humana.
-- [Segurança](SECURITY.md) · [Uso e diagnóstico](docs/USAGE.md) · [Validação](docs/VALIDATION.md) · [Portabilidade](docs/PORTABILITY.md) · [Contrato de escopo](docs/SPEC.md)
+[Uso detalhado](docs/USAGE.md) · [Contrato](docs/SPEC.md) · [API padrão](docs/providers/homegrown-ai-bridge.md) · [Segurança](SECURITY.md) · [Validação](docs/VALIDATION.md) · [Portabilidade](docs/PORTABILITY.md)
 
 ## Licença
 
-Nenhuma licença open-source foi selecionada nesta publicação. A visibilidade pública, por si só, não concede uma licença de redistribuição/modificação. Não presumir MIT ou outra licença.
+Nenhuma licença open-source foi selecionada. Visibilidade pública não concede automaticamente uma licença de redistribuição/modificação.

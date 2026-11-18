@@ -30,6 +30,7 @@ def digest(value):
 def save_json(path, value):
     path=Path(path)
     path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+    os.chmod(path.parent,0o700)
     tmp=path.with_suffix(path.suffix+'.tmp')
     with tmp.open('w',encoding='utf-8') as f:
         os.chmod(tmp,0o600)
@@ -48,7 +49,8 @@ def parse_answer(raw, model):
 
 
 def export(rows, output):
-    directory=output/'datasets'; directory.mkdir(exist_ok=True,mode=0o700)
+    output.mkdir(parents=True,exist_ok=True,mode=0o700);os.chmod(output,0o700)
+    directory=output/'datasets'; directory.mkdir(exist_ok=True,mode=0o700);os.chmod(directory,0o700)
     for label in LABELS:
         path=directory/(label+'.jsonl')
         with path.open('w',encoding='utf-8') as f:
@@ -76,7 +78,7 @@ def aggregate(labels):
     return 'indeterminado'
 
 
-def classify_records(items, client, model, output, *, chunk_chars=2400):
+def classify_records(items, client, model, output, *, chunk_chars=2400, progress=None, bundle_path=None):
     import sqlite3
     if type(chunk_chars) is not int or chunk_chars<1 or chunk_chars>2400:raise ValueError('invalid_chunk_size')
     if any(not isinstance(x.get('text'),str) or not x['text'] or len(x.get('context',''))>1200 for x in items):raise ValueError('invalid_item')
@@ -94,6 +96,9 @@ def classify_records(items, client, model, output, *, chunk_chars=2400):
         for f in (output/'lock.sqlite',output/'decisions.sqlite'):os.chmod(f,0o600)
         db.execute('CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, state TEXT NOT NULL, result TEXT)');db.commit()
         rows=[]
+        total_chunks=sum((len(item['text'])+chunk_chars-1)//chunk_chars for item in items)
+        completed_chunks=0
+        completed_items=0
         for item in items:
             parts=[item['text'][i:i+chunk_chars] for i in range(0,len(item['text']),chunk_chars)]
             decisions=[]
@@ -118,10 +123,22 @@ def classify_records(items, client, model, output, *, chunk_chars=2400):
                     decision['text_sha256']=hashlib.sha256(text.encode()).hexdigest()
                     db.execute('UPDATE decisions SET state=?,result=? WHERE id=?',('done',canonical(decision),key));db.commit()
                 decisions.append(decision)
+                completed_chunks+=1
+                if progress and completed_chunks%50==0:
+                    progress({'items_completed':completed_items,'items_total':len(items),
+                              'chunks_completed':completed_chunks,'chunks_total':total_chunks})
             ok=all(x['status']=='ok' for x in decisions)
             label=aggregate([x['label'] for x in decisions]) if ok else 'indeterminado'
             rows.append({**item,'label':label,'status':'ok' if ok else 'error','chunks':decisions,'provisional':True})
-        return export(rows,output)
+            completed_items+=1
+            if progress and (completed_items%25==0 or completed_items==len(items)):
+                progress({'items_completed':completed_items,'items_total':len(items),
+                          'chunks_completed':completed_chunks,'chunks_total':total_chunks})
+        summary=export(rows,output)
+        if bundle_path is not None:
+            import bundle
+            bundle.package_results(output,bundle_path)
+        return summary
     finally:
         if db is not None:db.close()
         lock.close()

@@ -41,6 +41,56 @@ class CliTests(unittest.TestCase):
             self.assertIn('relay_consent_required',err.getvalue())
             self.assertFalse((Path(t)/'classification').exists())
 
+    def test_classify_all_default_base_url_is_configured(self):
+        self.assertEqual(cli.parser().get_default('base_url'),cli.DEFAULT_API_BASE_URL)
+
+    def test_classify_all_processes_real_scope_without_synthetic_probe_and_bundles(self):
+        import json
+        import os
+        import sqlite3
+        import threading
+        from http.server import BaseHTTPRequestHandler,HTTPServer
+        calls=[]
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self,format,*args): pass
+            def do_GET(self):
+                self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers()
+                self.wfile.write(json.dumps({'data':[{'id':'clef-fixture','task':'classification'}]}).encode())
+            def do_POST(self):
+                body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                calls.append((self.path,body))
+                labels=('pessoal','profissional','misto','compartilhado','indeterminado')
+                result={'model':'clef-fixture','answers':{'dominio':{'choice':'compartilhado','probabilities':{x:float(x=='compartilhado') for x in labels}}}}
+                self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(json.dumps(result).encode())
+        server=HTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as t:
+                home=Path(t)/'hermes';home.mkdir();(home/'skills'/'demo').mkdir(parents=True)
+                (home/'skills'/'demo'/'SKILL.md').write_text('Procedimento genérico reutilizável.',encoding='utf-8')
+                db=sqlite3.connect(home/'state.db')
+                db.executescript('CREATE TABLE sessions(id TEXT,source TEXT,title TEXT); CREATE TABLE messages(id INTEGER,session_id TEXT,role TEXT,content TEXT,timestamp REAL);')
+                db.execute('INSERT INTO sessions VALUES (?,?,?)',('s','cli','Sessão'))
+                db.execute('INSERT INTO messages VALUES (?,?,?,?,?)',(1,'s','user','Planejar minhas férias em família.',1.0))
+                db.execute('INSERT INTO messages VALUES (?,?,?,?,?)',(2,'s','assistant','Resposta não deve ser classificada.',2.0))
+                db.commit();db.close()
+                key=Path(t)/'client.key';key.write_text('synthetic-client-key',encoding='utf-8');os.chmod(key,0o600)
+                work=Path(t)/'private-work';out=io.StringIO()
+                base=f'http://127.0.0.1:{server.server_port}/v1'
+                argv=['classify-all','--allow-relay','--home',str(home),'--work',str(work),'--base-url',base,'--key-file',str(key)]
+                with contextlib.redirect_stdout(out):
+                    code=cli.main(argv)
+                    self.assertEqual(code,0)
+                    code=cli.main(argv)
+                self.assertEqual(code,0)
+                result=json.loads(out.getvalue().splitlines()[0])
+                self.assertEqual(result['summary']['total_items'],2)
+                self.assertTrue((work/'classification_bundle.zip').is_file())
+                self.assertEqual([path for path,_ in calls],['/v1/classifications']*2)
+                self.assertEqual({body['model'] for _,body in calls},{'clef-fixture'})
+                self.assertEqual({json.loads(body['state'])['tipo'] for _,body in calls},{'task','skill'})
+                self.assertNotIn('synthetic-client-key',out.getvalue())
+        finally:server.shutdown();server.server_close();thread.join()
+
     def test_extract_creates_frozen_private_snapshot_without_network(self):
         import sqlite3
         with tempfile.TemporaryDirectory() as t:
@@ -62,6 +112,7 @@ class CliTests(unittest.TestCase):
 
     def test_run_exercises_real_http_contract_and_resume(self):
         import json
+        import os
         import threading
         from http.server import BaseHTTPRequestHandler, HTTPServer
         from study import save_json, digest
@@ -83,7 +134,7 @@ class CliTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as t:
                 work=Path(t)/'work'; corpus={'items':items()[:1],'coverage':{}}
                 corpus['items_sha256']=digest(corpus['items']);save_json(work/'corpus.json',corpus)
-                key=Path(t)/'key';key.write_text('synthetic-client')
+                key=Path(t)/'key';key.write_text('synthetic-client');os.chmod(key,0o600)
                 argv=['run','--work',str(work),'--base-url',f'http://127.0.0.1:{server.server_port}/v1','--model','clef-fixture','--key-file',str(key),'--allow-relay']
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(cli.main(argv),0)
