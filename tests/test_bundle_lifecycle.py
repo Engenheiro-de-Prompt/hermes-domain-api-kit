@@ -35,7 +35,7 @@ class BundleLifecycleTests(unittest.TestCase):
 
     def test_writable_fsync_and_exclusive_temp_preserve_other_execution(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             output = self.make_results(root)
             archive = root / 'result.zip'
             sentinel = root / 'result.zip.tmp'
@@ -70,7 +70,7 @@ class BundleLifecycleTests(unittest.TestCase):
 
     def test_crc_failure_keeps_previous_archive_and_cleans_only_owned_temp(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             output = self.make_results(root)
             archive = root / 'result.zip'
             archive.write_bytes(b'previous archive')
@@ -111,7 +111,7 @@ class BundleLifecycleTests(unittest.TestCase):
 
     def test_packaging_holds_real_sqlite_lock_and_resume_keeps_summary(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             output = root / 'campaign'
             archive = root / 'result.zip'
             client = SyntheticClient()
@@ -143,7 +143,7 @@ class BundleLifecycleTests(unittest.TestCase):
 
     def test_packaging_failure_releases_campaign_lock_without_losing_checkpoint(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             output = root / 'campaign'
             client = SyntheticClient()
             items = [{'id': 'synthetic-1', 'kind': 'request', 'text': 'Lazer.'}]

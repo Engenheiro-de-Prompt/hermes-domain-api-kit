@@ -9,7 +9,7 @@ from bundle import package_results
 class BundleTests(unittest.TestCase):
     def test_bundle_contains_only_allowlisted_outputs_and_excludes_credentials(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root=Path(temporary)
+            root=Path(temporary).resolve()
             result=root/'classification'
             (result/'datasets').mkdir(parents=True)
             (result/'summary.json').write_text('{"total_items":1}',encoding='utf-8')
