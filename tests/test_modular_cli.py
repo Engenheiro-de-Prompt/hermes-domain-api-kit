@@ -145,5 +145,12 @@ class ModularCliTests(unittest.TestCase):
                 self.assertEqual(code, 2)
                 self.assertEqual(len(calls), 1)
                 self.assertIn('selection_options_only_at_extraction', err)
+                checkpoint = work/'analysis'/'decisions.sqlite'
+                checkpoint.unlink()
+                code, _, err = self.invoke(argv)
+                self.assertEqual(code, 2)
+                self.assertIn('checkpoint_incomplete', err)
+                self.assertEqual(len(calls), 1)
+                self.assertFalse(checkpoint.exists())
         finally:
             server.shutdown(); server.server_close(); thread.join()

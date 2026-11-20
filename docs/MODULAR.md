@@ -49,6 +49,8 @@ Resultados em `feedback-privado/analysis/`:
 - `summary.json`: contagens, falhas e qualificação explicitamente não estabelecida;
 - manifesto e checkpoints: permitem retomada sem novas tentativas silenciosas.
 
+Se manifesto/checkpoint estiver ausente, vazio ou inválido, o fluxo modular bloqueia com `checkpoint_incomplete`; não reconstrói evidência nem repete inferências. Preserve a pasta para diagnóstico. Uma nova pasta inicia outra campanha e só deve ser usada quando a repetição estiver deliberadamente autorizada.
+
 O fluxo modular não gera ZIP automaticamente. Resultados contêm dados privados mesmo após redação e **não devem ser publicados**.
 
 ## Como interpretar feedback

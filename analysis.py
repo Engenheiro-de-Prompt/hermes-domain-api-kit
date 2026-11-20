@@ -191,21 +191,43 @@ def classify(items, client, model, output, *, rubric, chunk_chars=2400, progress
     manifest = {'version': 1, 'corpus_sha256': corpus_hash, 'rubric': rubric,
                 'model': model, 'base_sha256': study.digest(base), 'output_sha256': study.digest(str(output.resolve())),
                 'chunk_chars': chunk_chars}
-    for name in ('lock.sqlite', 'decisions.sqlite', 'manifest.json', 'results.jsonl', 'dataset.csv', 'summary.json'):
-        _private_file(output / name)
+    names = ('decisions.sqlite', 'manifest.json', 'results.jsonl', 'dataset.csv', 'summary.json')
+    lock_existed = os.path.lexists(output / 'lock.sqlite')
+    _private_file(output / 'lock.sqlite')
     lock = sqlite3.connect(output / 'lock.sqlite', timeout=0)
     db = None
     try:
         lock.execute('BEGIN IMMEDIATE')
-        mp = output / 'manifest.json'
-        if mp.stat().st_size:
-            if json.loads(mp.read_text(encoding='utf-8')) != manifest:
+        existing = [name for name in names if os.path.lexists(output / name)]
+        # Validate existing destinations without recreating missing evidence.
+        for name in existing:
+            _private_file(output / name)
+        mp, dp = output / 'manifest.json', output / 'decisions.sqlite'
+        resume = bool(existing) or lock_existed
+        if resume:
+            if not all(p.is_file() and p.stat().st_size for p in (mp, dp)):
+                raise ValueError('checkpoint_incomplete')
+            try:
+                previous = json.loads(mp.read_text(encoding='utf-8'))
+            except (ValueError, UnicodeError):
+                raise ValueError('checkpoint_incomplete') from None
+            if previous != manifest:
                 raise ValueError('campaign_mismatch')
+            try:
+                db = sqlite3.connect(dp)
+                if db.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+                    raise ValueError('checkpoint_incomplete')
+                db.execute('SELECT id,state,result FROM decisions LIMIT 0')
+            except sqlite3.DatabaseError:
+                raise ValueError('checkpoint_incomplete') from None
         else:
+            _private_file(dp)
+            db = sqlite3.connect(dp)
+            db.execute('CREATE TABLE decisions (id TEXT PRIMARY KEY, state TEXT NOT NULL, result TEXT)')
+            db.commit()
             _write(mp, study.canonical(manifest) + '\n')
-        db = sqlite3.connect(output / 'decisions.sqlite')
-        db.execute('CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, state TEXT NOT NULL, result TEXT)')
-        db.commit()
+        for name in ('results.jsonl', 'dataset.csv', 'summary.json'):
+            _private_file(output / name)
         rows = []
         chunks_total = sum((len(item['text']) + chunk_chars - 1) // chunk_chars for item in items)
         chunks_completed = 0

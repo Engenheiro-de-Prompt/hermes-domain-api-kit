@@ -176,6 +176,26 @@ class EngineTests(unittest.TestCase):
                     analysis.classify(data, client, model, temporary, rubric=rubric, chunk_chars=chunk)
                 self.assertEqual(client.calls, [])
 
+    def test_partial_checkpoint_blocks_resume_without_replay_or_recreation(self):
+        for name in ('manifest.json', 'decisions.sqlite'):
+            for damage in ('missing', 'empty', 'invalid'):
+                with self.subTest(file=name, damage=damage), tempfile.TemporaryDirectory() as temporary:
+                    output = Path(temporary)
+                    items = [{'id': 'one', 'kind': 'feedback', 'text': 'synthetic'}]
+                    analysis.classify(items, Client(), 'synthetic', output, rubric='feedback')
+                    path = output / name
+                    if damage == 'missing':
+                        path.unlink()
+                    else:
+                        path.write_bytes(b'' if damage == 'empty' else b'invalid synthetic checkpoint')
+                    before = {p.name: p.read_bytes() for p in output.iterdir() if p.is_file()}
+                    client = Client()
+                    with self.assertRaisesRegex(ValueError, '^checkpoint_incomplete$'):
+                        analysis.classify(items, client, 'synthetic', output, rubric='feedback')
+                    self.assertEqual(client.calls, [])
+                    after = {p.name: p.read_bytes() for p in output.iterdir() if p.is_file()}
+                    self.assertEqual(before, after)
+
     def test_malformed_and_transport_failures_are_terminal(self):
         valid = Client(['neutro']).classify('synthetic', '{}', {'classificacao': {'criteria': analysis.load_rubric('feedback')['criteria']}})
         import copy

@@ -197,7 +197,7 @@ def main(argv=None):
         raise ValueError('command_not_implemented')
     except Exception as error:
         # Never echo paths, URL inputs, keys, private texts or remote error bodies.
-        allowed={'snapshot_already_exists_use_new_work','work_must_be_outside_repository','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch','explicit_work_required','selection_options_only_at_extraction','rubric_source_mismatch','selection_invalid','invalid_rubric','invalid_snapshot','unsupported_verification_rubric','modular_options_require_modular_command'}
+        allowed={'snapshot_already_exists_use_new_work','work_must_be_outside_repository','checkpoint_incomplete','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch','explicit_work_required','selection_options_only_at_extraction','rubric_source_mismatch','selection_invalid','invalid_rubric','invalid_snapshot','unsupported_verification_rubric','modular_options_require_modular_command'}
         code=str(error) if isinstance(error,ValueError) and str(error) in allowed else type(error).__name__
         from api_client import ClientError
         if isinstance(error,ClientError):code=error.code
