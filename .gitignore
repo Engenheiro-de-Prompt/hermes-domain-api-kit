@@ -18,3 +18,10 @@ config.local.json
 .DS_Store
 .coverage
 htmlcov/
+corpus.json
+manifest.json
+summary.json
+result.json
+runs/
+analysis/
+verification/

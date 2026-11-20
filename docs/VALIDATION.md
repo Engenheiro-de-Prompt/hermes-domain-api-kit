@@ -16,6 +16,12 @@ Esta atualização incorporou partes revisadas do pacote de código fornecido pe
 
 A validação desta atualização usa fixtures e cópia limpa. Não classifica o histórico real do proprietário para testar a publicação. O comando verify permite um smoke público sintético opcional quando o operador autorizar; classify-all não o dispara implicitamente.
 
+## Extensão modular
+
+Os comandos `rubrics`, `extract-selected`, `analyze` e `verify-analysis` estão documentados em [MODULAR.md](MODULAR.md). Os testes offline exercitam a composição seleção SQLite → contexto de feedback → rubrica → contrato HTTP sintético → exportação → retomada, além de rubricas custom, WAL real, filtros antes da leitura, flags de contexto e compatibilidade sem atributos POSIX exclusivos. Não comprovam qualidade de CLEF/Flash real.
+
+A homologação real desta extensão foi deliberadamente adiada para não disputar o servidor compartilhado com outro consumidor. Não houve consulta ao serviço de modelos para esta validação offline. Uma janela livre e credencial CLIENT autorizada continuam necessárias; até lá, não há alegação de precisão ou de aprovação de inferência real.
+
 ## Não confundir
 
 - Suíte verde ou ZIP com CRC íntegro não certifica precisão dos rótulos.

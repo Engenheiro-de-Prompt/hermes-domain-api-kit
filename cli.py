@@ -30,7 +30,7 @@ class SafeArgumentParser(argparse.ArgumentParser):
 
 def parser():
     p=SafeArgumentParser(description='Classifique seu Hermes sem modelos neste PC. Use chave CLIENT, não AGENT.',epilog='Fluxo completo autorizado: python3 cli.py classify-all --allow-relay --work ../minha-classificacao. Guia: README.md e docs/USAGE.md.')
-    p.add_argument('command',choices=['classify-all','models','verify','extract','run'],help='classify-all: perfil completo e ZIP; models: catálogo; verify: teste sintético; extract: só local; run: snapshot já extraído')
+    p.add_argument('command',choices=['classify-all','models','verify','extract','run','rubrics','extract-selected','analyze','verify-analysis'],help='Legado: classify-all/models/verify/extract/run. Modular: rubrics/extract-selected/analyze/verify-analysis')
     p.add_argument('--base-url',default=os.environ.get('HERMES_CLASSIFIER_API_BASE') or DEFAULT_API_BASE_URL)
     p.add_argument('--key-file',default=os.environ.get('HERMES_CLASSIFIER_KEY_FILE'))
     p.add_argument('--home',help='HERMES_HOME selecionado; não explora outros perfis')
@@ -38,6 +38,11 @@ def parser():
     p.add_argument('--model',help='ID literal do catálogo; classificação CLEF, sem fallback para chat')
     p.add_argument('--allow-relay',action='store_true',help='Autoriza enviar o snapshot sanitizado ao relay hospedado')
     p.add_argument('--limit',type=int,help='Primeiros N itens do snapshot; congelado por campanha')
+    p.add_argument('--rubric', default='domain', help='domain, feedback ou arquivo JSON de rubrica')
+    p.add_argument('--sources', nargs='+', choices=['tasks','feedback','skills','memories'], help='Fontes explícitas para extract-selected; padrão acompanha a rubrica')
+    p.add_argument('--session', action='append', default=[], help='ID exato de sessão; repetível; só afeta mensagens')
+    p.add_argument('--delegation', choices=['all','human','subagent'], default='human', help='Seleção modular: human exclui subagentes por padrão')
+    p.add_argument('--context-chars', type=int, default=1200, help='Contexto auxiliar de feedback, 0 a 1200 caracteres')
     p.add_argument('--timeout',type=float,default=145)
     return p
 
@@ -98,11 +103,16 @@ def select_model(client, requested):
 def main(argv=None):
     args=parser().parse_args(argv)
     old_umask=os.umask(0o077)
-    if args.command in ('run','classify-all') and not args.allow_relay:
+    if args.command in ('run','classify-all','analyze','verify-analysis') and not args.allow_relay:
         print(json.dumps({'error':'relay_consent_required','hint':ERROR_HINTS['relay_consent_required']},ensure_ascii=False),file=sys.stderr)
         os.umask(old_umask)
         return 2
     try:
+        if args.command in ('rubrics','extract-selected','analyze','verify-analysis'):
+            from modular_cli import execute
+            return execute(args)
+        if args.sources or args.session or args.rubric != 'domain' or args.delegation != 'human' or args.context_chars != 1200:
+            raise ValueError('modular_options_require_modular_command')
         if args.command=='classify-all':
             from datetime import datetime,timezone
             from extractor import discover_home, extract
@@ -187,7 +197,7 @@ def main(argv=None):
         raise ValueError('command_not_implemented')
     except Exception as error:
         # Never echo paths, URL inputs, keys, private texts or remote error bodies.
-        allowed={'snapshot_already_exists_use_new_work','work_must_be_outside_repository','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch'}
+        allowed={'snapshot_already_exists_use_new_work','work_must_be_outside_repository','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch','explicit_work_required','selection_options_only_at_extraction','rubric_source_mismatch','selection_invalid','invalid_rubric','invalid_snapshot','unsupported_verification_rubric','modular_options_require_modular_command'}
         code=str(error) if isinstance(error,ValueError) and str(error) in allowed else type(error).__name__
         from api_client import ClientError
         if isinstance(error,ClientError):code=error.code

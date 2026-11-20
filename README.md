@@ -1,6 +1,24 @@
 # Hermes Domain API Kit
 
-**Classifique pedidos, skills e memórias do seu Hermes em pessoal ou profissional — sem instalar modelos no outro PC.**
+**Classifique pedidos, skills e memórias por finalidade — ou escolha uma rubrica modular para analisar correções, redirecionamentos e insatisfação. Sem instalar modelos no outro PC.**
+
+## Novo: escolha o que classificar
+
+- **Fontes independentes:** pedidos, feedback de conversas, skills ou memórias.
+- **Seleção:** perfil explícito, sessões específicas e inclusão/exclusão de subagentes.
+- **Rubricas JSON:** `domain` (pessoal/profissional e demais classes), `feedback` ou critérios próprios sem editar Python.
+- **Extração offline separada da inferência:** prepare agora, use a API somente numa janela livre.
+
+```bash
+python3 cli.py rubrics
+python3 cli.py extract-selected --rubric feedback --home "/caminho/do/hermes" --work ../feedback-privado
+# Execute a próxima etapa SOMENTE quando o servidor estiver livre:
+python3 cli.py analyze --rubric feedback --work ../feedback-privado --limit 20 --allow-relay
+```
+
+Correção/redirecionamento **não prova erro objetivo do Hermes**. Rótulos são provisórios, com contexto limitado e resultados desconhecidos explícitos. [Guia modular, customização e limites](docs/MODULAR.md).
+
+O fluxo original abaixo continua compatível para classificação de finalidade.
 
 O kit também separa **misto**, **compartilhado** e **indeterminado** para não forçar uma classificação sem evidência. Entrega CSV, cinco JSONL, resumo e um ZIP privado.
 
@@ -82,7 +100,7 @@ Use o [prompt pronto em COMECE_AQUI.md](COMECE_AQUI.md). Ele explica os padrões
 ## Escopo e limites
 
 - **Inclui:** pedidos `user` do `state.db`, skills/referências textuais suportadas e memórias do perfil selecionado.
-- **Exclui:** respostas do assistente, mensagens de ferramenta, prompts de sistema/raciocínio, credenciais/configurações e outros perfis. Não é inventário completo de todas as funções executadas pelo agente.
+- **Exclui no fluxo de finalidade:** respostas do assistente, mensagens de ferramenta, prompts de sistema/raciocínio, credenciais/configurações e outros perfis. No fluxo modular `feedback`, somente o último texto `assistant` anterior da mesma sessão pode entrar como contexto auxiliar limitado; não vira tarefa independente. Não é inventário completo de todas as funções executadas pelo agente.
 - A redação de padrões conhecidos **não garante anonimização**. CSV/JSONL contêm texto privado.
 - SQLite: leitura de dados/esquema; WAL/SHM podem ser criados ou atualizados. Não é aquisição forense de pasta imutável.
 - Rótulos são provisórios; scores não são probabilidades calibradas. Testes não certificam precisão no seu acervo.

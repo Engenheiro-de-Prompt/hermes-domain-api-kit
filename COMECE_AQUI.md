@@ -18,6 +18,10 @@ Antes: disponibilize uma chave **CLIENT** em arquivo privado no computador consu
 >
 > Entregue totais, cobertura, contagens por categoria, falhas e o caminho privado de classification_bundle.zip. Só chame de completo quando toda a cobertura e todas as classificações estiverem concluídas e o ZIP validado. Não publique fontes, resultados, configurações nem credenciais.
 
+## Para analisar feedback ou criar outra classificação
+
+> Leia também docs/MODULAR.md. Quero escolher fontes/sessões e rubrica sem editar o motor. Use `rubrics` para conhecer os critérios e `extract-selected --rubric feedback --home <perfil-autorizado> --work <pasta-privada>` para preparar candidatos a feedback localmente. Somente numa janela autorizada e livre do servidor, use `analyze --rubric feedback --work <mesma-pasta> --limit N --allow-relay`. Para critérios próprios, use JSON conforme o guia. Não trate correção/redirecionamento como falha objetiva; preserve contexto ausente/truncado, desconhecidos e proveniência. Não publique resultados nem chaves. Não instale monitoramento automático de sessões futuras por inferência deste prompt.
+
 ## Comando do perfil completo autorizado
 
 ```bash
