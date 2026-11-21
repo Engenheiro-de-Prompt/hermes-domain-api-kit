@@ -75,7 +75,13 @@ def _answer(raw, model, rubric):
         if not isinstance(answers, dict) or set(answers) != {'classificacao'}:
             raise ValueError()
         answer = answers['classificacao']
-        if not isinstance(answer, dict) or set(answer) != {'choice', 'probabilities'}:
+        if (not isinstance(answer, dict) or not {'choice', 'probabilities'} <= set(answer)
+                or set(answer) - {'choice', 'probabilities', 'type', 'confidence'}):
+            raise ValueError()
+        if 'type' in answer and answer['type'] != 'choice':
+            raise ValueError()
+        if 'confidence' in answer and (type(answer['confidence']) not in (int, float)
+                or not math.isfinite(answer['confidence']) or not 0 <= answer['confidence'] <= 1):
             raise ValueError()
         label, scores = answer['choice'], answer['probabilities']
         if not isinstance(label, str) or label not in rubric['criteria'] or not isinstance(scores, dict) or set(scores) != set(rubric['criteria']):

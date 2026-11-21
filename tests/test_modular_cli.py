@@ -116,7 +116,7 @@ class ModularCliTests(unittest.TestCase):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 calls.append(body)
-                result = {'model':'clef-fixture','answers':{'classificacao':{'choice':labels[0], 'probabilities':{x:float(x==labels[0]) for x in labels}}}}
+                result = {'model':'clef-fixture','answers':{'classificacao':{'type':'choice', 'confidence':1.0, 'choice':labels[0], 'probabilities':{x:float(x==labels[0]) for x in labels}}}}
                 self.send_response(200); self.end_headers(); self.wfile.write(json.dumps(result).encode())
         server = HTTPServer(('127.0.0.1',0),Handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()

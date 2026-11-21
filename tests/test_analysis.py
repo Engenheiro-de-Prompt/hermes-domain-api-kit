@@ -63,6 +63,25 @@ class Client:
 
 
 class EngineTests(unittest.TestCase):
+    def test_real_api_choice_metadata_is_accepted_and_validated(self):
+        class TypedClient(Client):
+            metadata = {'type': 'choice', 'confidence': 0.9}
+
+            def classify(self, model, state, questions):
+                response = super().classify(model, state, questions)
+                response['answers']['classificacao'].update(self.metadata)
+                return response
+
+        item = {'id': 'synthetic-metadata', 'kind': 'feedback', 'text': 'Novo pedido independente.'}
+        with tempfile.TemporaryDirectory() as tmp:
+            result = analysis.classify([item], TypedClient(), 'synthetic', Path(tmp)/'valid', rubric=analysis.load_rubric('feedback'))
+            self.assertEqual(result['completed'], 1)
+            for index, metadata in enumerate(({'type': 'other'}, {'confidence': True}, {'confidence': float('nan')}, {'confidence': 1.1}, {'extra': 'unrecognized'})):
+                client = TypedClient()
+                client.metadata = metadata
+                result = analysis.classify([item], client, 'synthetic', Path(tmp)/str(index), rubric=analysis.load_rubric('feedback'))
+                self.assertEqual(result['failed'], 1)
+
     def test_selected_feedback_context_flags_and_provenance_reach_model(self):
         import selection
         with tempfile.TemporaryDirectory() as temporary:

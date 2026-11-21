@@ -20,7 +20,9 @@ A validação desta atualização usa fixtures e cópia limpa. Não classifica o
 
 Os comandos `rubrics`, `extract-selected`, `analyze` e `verify-analysis` estão documentados em [MODULAR.md](MODULAR.md). Os testes offline exercitam a composição seleção SQLite → contexto de feedback → rubrica → contrato HTTP sintético → exportação → retomada, além de rubricas custom, WAL real, filtros antes da leitura, flags de contexto e compatibilidade sem atributos POSIX exclusivos. Não comprovam qualidade de CLEF/Flash real.
 
-A homologação real desta extensão foi deliberadamente adiada para não disputar o servidor compartilhado com outro consumidor. Não houve consulta ao serviço de modelos para esta validação offline. Uma janela livre e credencial CLIENT autorizada continuam necessárias; até lá, não há alegação de precisão ou de aprovação de inferência real.
+A primeira validação foi adiada para não disputar o servidor compartilhado. Em janela posteriormente autorizada, o smoke sintético real com CLEF Flash concluiu as cinco respostas da API: quatro rótulos coincidiram com os cinco esperados da rubrica `feedback`; um pedido novo foi confundido com redirecionamento. Isso comprova a integração, não qualifica a precisão do classificador. Campanhas privadas posteriores não são fixtures nem parte da distribuição.
+
+O contrato HTTP real inclui os metadados opcionais `type: "choice"` e `confidence` numérico finito entre 0 e 1. O motor aceita e valida esses campos, sem relaxar a validação de modelo, categorias ou probabilidades. A fixture HTTP modular reproduz esse envelope para evitar testes verdes com um schema diferente do servido.
 
 ## Não confundir
 
