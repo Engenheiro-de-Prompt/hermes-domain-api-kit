@@ -13,7 +13,7 @@ SOURCE_KIND = {'tasks': 'task', 'feedback': 'feedback', 'skills': 'skill', 'memo
 def execute(args):
     import cli
     if args.command == 'rubrics':
-        print(json.dumps({'rubrics': [load_rubric(name) for name in ('domain', 'feedback')]}, ensure_ascii=False))
+        print(json.dumps({'rubrics': [load_rubric(name) for name in ('domain', 'feedback', 'satisfaction', 'corrections')]}, ensure_ascii=False))
         return 0
     rubric = load_rubric(args.rubric)
     if not args.work:

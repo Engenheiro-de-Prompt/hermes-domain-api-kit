@@ -2,7 +2,30 @@
 
 **Classifique pedidos, skills e memórias por finalidade — ou escolha uma rubrica modular para analisar correções, redirecionamentos e insatisfação. Sem instalar modelos no outro PC.**
 
-## Novo: escolha o que classificar
+## Novo: duas análises de feedback e dashboard em um comando
+
+Para analisar satisfação/insatisfação e correções/redirecionamentos de **um perfil autorizado**, sem montar etapas manualmente:
+
+```bash
+python3 cli.py feedback-all --home "/caminho/do/perfil" --work "/caminho/privado/campanha-feedback" --allow-relay
+```
+
+Escolha uma pasta privada **fora do checkout**. O comando extrai feedback, executa as rubricas independentes `satisfaction` e `corrections`, aplica deduplicação conservadora numa projeção derivada e gera `unique/dashboard.html`, `unique/weekly.csv` e `unique/report.json` dentro de `--work`. O HTML funciona offline e apresenta contagens, taxas, média móvel ponderada e mediana móvel de 4 semanas, cobertura e comparação de blocos.
+
+É necessário acesso autorizado à API e chave **CLIENT** privada; use `--key-file "/caminho/privado/client.key"` quando provisionada, ou prompt local sem eco. O padrão da API está no kit; `--base-url URL` e `--model ID` permitem seleção explícita. Também são aceitos `--cutoff YYYY-MM-DD`, `--session ID`, `--context-chars 1200` e `--timezone UTC`. O calendário padrão usa `America/Sao_Paulo`; sem dados IANA (comum no Windows), instale `python -m pip install -r requirements-timezones.txt` ou escolha UTC antes da campanha. **`--allow-relay` explicita autorização de transmissão de texto**, não anonimização garantida.
+
+Retome com o mesmo `--work` e contrato: inferências já tentadas não se repetem, nem falhas silenciosamente. Novo histórico exige nova campanha/pasta. Para regenerar somente relatórios, sem perfil, chave, modelo ou rede:
+
+```bash
+python3 cli.py feedback-report --work "/caminho/privado/campanha-feedback"
+# Opcional: --cutoff YYYY-MM-DD
+```
+
+Falhas e ausências não são sucesso. O intervalo observado não comprova primeira instalação nem ausência de histórico apagado; rótulos não provam erro objetivo ou satisfação real. Fixtures não certificam um modelo. O comando não instala modelos, muda serviços, agenda tarefas ou analisa automaticamente outros perfis. Publique apenas código/docs/fixtures sintéticas; home e resultados permanecem privados.
+
+**[Tutorial completo e interpretação do dashboard](docs/DASHBOARD.md)**. O dashboard é de feedback, não de domínio/finalidade. `classify-all` e os comandos modulares abaixo continuam disponíveis.
+
+## Escolha modular do que classificar
 
 - **Fontes independentes:** pedidos, feedback de conversas, skills ou memórias.
 - **Seleção:** perfil explícito, sessões específicas e inclusão/exclusão de subagentes.

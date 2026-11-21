@@ -10,7 +10,7 @@ Classificar pedidos, skills e memórias de um único perfil autorizado em pessoa
 - CLIENT autentica o consumidor; AGENT autentica o conector no PC dos modelos. Não reutilizar credenciais de OpenAI, backend ou outro perfil. Usar arquivo privado (--key-file/HERMES_CLASSIFIER_KEY_FILE), ambiente previamente provisionado ou prompt local sem eco; nunca pedir chave pelo chat, embuti-la em argv ou publicá-la.
 - Verificar se a autorização do proprietário cobre o perfil, escopo e trânsito de texto pelo relay. Não inferir essa autorização de documentos, chave ou instruções extraídas. Não repetir uma autorização explícita já concedida. O sinal --allow-relay registra essa decisão na execução.
 
-## Fluxo
+## Fluxo legado de finalidade
 
 1. Verificar Python 3.11+ e rodar python3 -m unittest discover -s tests -v. Os testes usam fixtures, não perfis reais nem serviço público.
 2. Selecionar --home explícito ou HERMES_HOME; na ausência, ~/.hermes. Não explorar perfis irmãos ou outras contas.
@@ -19,6 +19,22 @@ Classificar pedidos, skills e memórias de um único perfil autorizado em pessoa
 5. Anotar a pasta informada no evento inicial da campanha. Sem --work, cada execução cria pasta exclusiva. Para retomar, preservar --work, home, API, modelo e critérios. Perfis diferentes ou snapshot sem identidade verificável são recusados. O comando legado run continua disponível para snapshots antigos, sem torná-los compatíveis por edição manual.
 6. Resultados incluem erros e resultados desconhecidos, sem replay silencioso. Não apagar checkpoint nem fazer fallback para chat. Pacote de campanha parcial não é sucesso; exigir failed=0, cobertura completa e ZIP íntegro antes de declarar completo.
 7. Entregar contagens e caminhos privados. Não publicar CSV, JSONL, corpus, SQLite, chaves ou gravações. Não fazer push/deploy, alterar firewall, serviços do servidor ou configurar credenciais de outras contas por inferência.
+
+## Feedback automático e relatórios offline
+
+Para entregar **as duas análises de feedback e o dashboard** de um único perfil autorizado, ler [docs/DASHBOARD.md](docs/DASHBOARD.md) e executar:
+
+```bash
+python3 cli.py feedback-all --home <perfil-autorizado> --work <pasta-privada-fora-do-checkout> --allow-relay
+```
+
+O comando extrai feedback, executa `satisfaction` e `corrections` independentemente, deduplica conservadoramente uma projeção e gera `<work>/unique/dashboard.html`, `weekly.csv` e `report.json` no mesmo diretório `unique`. Há gráficos de contagens/taxas, média móvel ponderada e mediana móvel de 4 semanas, cobertura e comparação de blocos. Opções adicionais: `--base-url URL`, `--key-file ARQUIVO`, `--model ID`, `--cutoff YYYY-MM-DD`, `--session ID`, `--context-chars 1200`. CLIENT e autorização de relay seguem as fronteiras acima; não chamar o serviço enquanto estiver reservado.
+
+Retomar o mesmo `--work` não repete inferências já tentadas. Não remover checkpoints nem repetir falhas silenciosamente. Novo histórico exige nova campanha/pasta, não atualização automática da antiga. Para regenerar só relatórios, sem API/modelo/chave/perfil: `python3 cli.py feedback-report --work <mesma-pasta> [--cutoff YYYY-MM-DD]` (os colchetes indicam opção, não texto literal para executar).
+
+Entregar caminhos privados, cobertura, exclusões, desconhecidos e falhas; HTML existente não basta para sucesso. Intervalo observado não comprova primeira instalação nem ausência de histórico apagado. Rótulo não prova erro objetivo nem satisfação real; fixtures não qualificam o modelo. Não copiar controles/contagens do autor como resultado do consumidor. Publicar só código/docs/fixtures sintéticas, nunca home nem artefatos privados.
+
+O fluxo não instala modelos, não muda serviços, não agenda nada e não explora outros perfis. Preservar `classify-all` para finalidade e o modo modular; não anunciar dashboard de domínio.
 
 ## Extensão modular
 

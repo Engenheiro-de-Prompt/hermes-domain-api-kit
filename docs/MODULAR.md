@@ -14,7 +14,28 @@ Escolher separadamente **o que ler** (fontes e sessões), **o que perguntar** (r
 
 `tasks` são pedidos humanos, não prova de execução. `feedback` usa cada mensagem `user` como candidato e a última mensagem `assistant` anterior da mesma sessão como contexto auxiliar; não classifica tools, sistema ou raciocínio. A última mensagem do assistente pode ser andamento, não necessariamente entrega final. Mensagens sucessivas do usuário podem compartilhar esse contexto; isso não estabelece causalidade. IDs e timestamps originais permanecem na proveniência privada.
 
-## Exemplo: correções e insatisfação
+## Fluxo automático: duas rubricas e dashboard
+
+Para obter as duas análises independentes `satisfaction` e `corrections`, mais os relatórios, prefira o fluxo completo:
+
+```bash
+python3 cli.py feedback-all --home "/caminho/do/perfil" --work "/caminho/privado/campanha-feedback" --allow-relay
+```
+
+Executa extração de feedback, ambas as rubricas, deduplicação conservadora e geração de `unique/dashboard.html`, `unique/weekly.csv` e `unique/report.json`. O dashboard offline inclui contagens/taxas, média móvel ponderada e mediana móvel de 4 semanas, cobertura e comparação de blocos. Opções: `--base-url URL`, `--key-file ARQUIVO`, `--model ID`, `--cutoff YYYY-MM-DD`, `--session ID` e `--context-chars 1200`. Perfil e pasta são do consumidor, não do autor; a pasta privada fica fora do checkout.
+
+Retomar a mesma pasta preserva as tentativas sem repetir inferências. Para incorporar novo histórico, crie outra campanha/pasta. Para refazer apenas os relatórios offline, sem modelo, chave ou leitura do perfil:
+
+```bash
+python3 cli.py feedback-report --work "/caminho/privado/campanha-feedback"
+# Opcional: --cutoff YYYY-MM-DD
+```
+
+`--allow-relay` explicita transmissão autorizada; os dados continuam privados. Este fluxo não muda serviços, não agenda tarefas e não instala modelos. Não percorre automaticamente todos os perfis. O intervalo observado não comprova primeira instalação nem histórico apagado; exclusões/ausências e falhas precisam permanecer visíveis, nunca contar como sucesso. Rótulos não provam erro ou satisfação real e fixtures não certificam modelos. [Tutorial e limites do dashboard](DASHBOARD.md).
+
+Os exemplos seguintes mantêm a rubrica modular histórica `feedback`, **uma análise distinta**, para quem quer controlar cada etapa ou criar critérios próprios. Ela não é substituída silenciosamente pelas duas novas rubricas. `classify-all` mantém a classificação de domínio e não promete dashboard de domínio.
+
+## Exemplo modular: correções e insatisfação
 
 ### 1. Descobrir rubricas — offline, sem chave
 

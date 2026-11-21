@@ -23,7 +23,7 @@ class ModularCliTests(unittest.TestCase):
         with patch('cli.configured_client', side_effect=AssertionError('no_network')):
             code, out, _ = self.invoke(['rubrics'])
         self.assertEqual(code, 0)
-        self.assertEqual({r['id'] for r in json.loads(out)['rubrics']}, {'domain', 'feedback'})
+        self.assertEqual({r['id'] for r in json.loads(out)['rubrics']}, {'domain', 'feedback', 'satisfaction', 'corrections'})
 
     def test_analyze_requires_authorization_before_io(self):
         with tempfile.TemporaryDirectory() as directory:

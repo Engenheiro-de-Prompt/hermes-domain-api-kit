@@ -25,3 +25,10 @@ result.json
 runs/
 analysis/
 verification/
+snapshot.json
+# Generated feedback work products (never publish personal reports)
+pipeline.json
+report.json
+report.html
+dashboard.html
+unique/

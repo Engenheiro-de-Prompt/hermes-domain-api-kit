@@ -57,7 +57,7 @@ def load_rubric(value):
     try:
         if not isinstance(value, (str, os.PathLike)):
             raise ValueError('invalid_rubric')
-        path = Path(__file__).parent / 'rubrics' / (str(value) + '.json') if str(value) in ('domain', 'feedback') else Path(value)
+        path = Path(__file__).parent / 'rubrics' / (str(value) + '.json') if str(value) in ('domain', 'feedback', 'satisfaction', 'corrections') else Path(value)
         with path.open('rb') as stream:
             raw = stream.read(65537)
         if len(raw) > 65536:

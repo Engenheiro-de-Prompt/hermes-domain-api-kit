@@ -1,0 +1,3 @@
+# Optional IANA timezone database for systems without OS tzdata (e.g. Windows).
+# Not needed with --timezone UTC. No models or GPU dependencies.
+tzdata==2026.6
