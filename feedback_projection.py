@@ -13,6 +13,8 @@ import feedback_report as report
 
 def project(root, *, timezone_name=report.DEFAULT_TIMEZONE):
     root = Path(root)
+    report._check_tree(root)
+    report._timezone(timezone_name)
     original = [item for item in json.loads(
         (root / 'corpus.json').read_text(encoding='utf-8'))['items']
         if item.get('kind') == 'feedback']
@@ -43,7 +45,7 @@ def project(root, *, timezone_name=report.DEFAULT_TIMEZONE):
                       if isinstance(ref, dict)]
         merged.append({'id': new_id, 'kind': 'feedback', 'provenance': provenance})
         keys[new_id] = items
-    (out / 'corpus.json').write_text(json.dumps({'items': merged}, ensure_ascii=False), encoding='utf-8')
+    report._write_text(out / 'corpus.json', json.dumps({'items': merged}, ensure_ascii=False))
     disagreements = {}
     for name in report.LABELS:
         src = root / name / 'analysis' / 'results.jsonl'
@@ -66,7 +68,7 @@ def project(root, *, timezone_name=report.DEFAULT_TIMEZONE):
                            'label': next(iter(labels)) if valid and len(labels) == 1 else 'indeterminado'})
         path = out / name / 'analysis'
         path.mkdir(parents=True, mode=0o700, exist_ok=True)
-        (path / 'results.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in result), encoding='utf-8')
+        report._write_text(path / 'results.jsonl', ''.join(json.dumps(r) + '\n' for r in result))
     data = report.build(out, timezone_name=timezone_name)
     data['deduplication'] = {
         'policy': 'same session_id + exact timestamp + exact sanitized full text; undated never deduplicated; disagreements abstain; originals preserved',
@@ -74,7 +76,7 @@ def project(root, *, timezone_name=report.DEFAULT_TIMEZONE):
         'duplicate_copies_removed': len(original) - len(merged),
         'duplicate_label_disagreements': disagreements,
     }
-    (out / 'report.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    report._write_text(out / 'report.json', json.dumps(data, ensure_ascii=False, indent=2) + '\n')
     return data
 
 

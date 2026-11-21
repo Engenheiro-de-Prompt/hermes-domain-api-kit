@@ -14,8 +14,8 @@ NAMES=('satisfaction','corrections')
 
 
 def _check_tree(root):
-    if root.is_symlink() or any(p.is_symlink() for p in root.rglob('*')):
-        raise ValueError('invalid_snapshot')
+    from feedback_report import _check_tree as check_tree
+    check_tree(root)
 
 
 def _read(path, sealed=False):
@@ -67,7 +67,7 @@ def render_reports(work, cutoff, timezone_name='America/Sao_Paulo'):
         'last_date':str(max(dates)) if dates else None,'installation_date_proven':False,
         'scope':'selected_profile_snapshot_only','source_status':coverage.get('status','unknown'),
         'excluded':coverage.get('excluded',{}),'source_failure_count':len(coverage.get('failures',[]))}
-    (out/'report.json').write_text(json.dumps(data,ensure_ascii=False,allow_nan=False,indent=2)+'\n',encoding='utf-8')
+    feedback_report._write_text(out/'report.json',json.dumps(data,ensure_ascii=False,allow_nan=False,indent=2)+'\n')
     page=render(data,cutoff)
     info=data['observed_history']
     exclusions=''.join('<li>'+escape(str(k))+': '+escape(str(v))+'</li>' for k,v in info['excluded'].items())
@@ -79,7 +79,7 @@ def render_reports(work, cutoff, timezone_name='America/Sao_Paulo'):
     scope=f'<section class="scope"><h2>Alcance do histórico disponível</h2><p>Primeiro registro datado: {escape(info["first_date"] or "não disponível")}. Último: {escape(info["last_date"] or "não disponível")}.</p><dl class="metrics">{cards}</dl><p>Isso não comprova a data da primeira instalação nem recupera sessões apagadas, outros perfis ou dados ausentes. A análise usa somente o snapshot selecionado.</p><p>Extração: {escape(str(info["source_status"]))}; falhas de fonte: {info["source_failure_count"]}.</p><details><summary>Exclusões na extração (contagens)</summary><ul>{exclusions}</ul></details></section>'
     layout='<style>main{display:flex;flex-direction:column}main>header{order:0}main>section{order:3}main>section.scope{order:1}main>section.warning{order:2}main>section:has(table){order:4}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.metrics div{padding:12px;background:#f1f5f9;border-radius:8px}.metrics dt{font-size:14px}.metrics dd{margin:0;font-size:28px;font-weight:bold}</style>'
     page=page.replace('</header>','</header>'+scope,1).replace('</head>',layout+'</head>',1)
-    (out/'dashboard.html').write_text(page,encoding='utf-8')
+    feedback_report._write_text(out/'dashboard.html',page)
     partial=coverage.get('status')!='ok' or bool(data.get('missing_timestamps',{}).get('messages')) or any(data['totals'][name]['partial'] for name in NAMES)
     return {'dashboard':str(out/'dashboard.html'),'weekly_csv':str(out/'weekly.csv'),
         'report_json':str(out/'report.json'),'raw_records':len(corpus['items']),

@@ -9,6 +9,10 @@ O padrão preserva America/Sao_Paulo; UTC não exige tzdata do sistema.
 """
 import argparse
 import csv
+import io
+import os
+import stat
+import tempfile
 from html import escape
 import json
 from datetime import datetime, timedelta, timezone
@@ -82,6 +86,39 @@ def _read_rows(path):
     return rows
 
 
+def _check_tree(root):
+    """Reject prepared links/special files before reading or writing a campaign."""
+    root = Path(root)
+    for path in (root, *root.rglob('*')):
+        info = path.lstat()
+        if (stat.S_ISLNK(info.st_mode) or
+                (not stat.S_ISDIR(info.st_mode) and
+                 (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1))):
+            raise ValueError('invalid_snapshot')
+
+
+def _write_text(path, content):
+    """Private atomic replacement; never truncate an existing linked inode."""
+    path = Path(path)
+    if path.parent.is_symlink():
+        raise ValueError('invalid_snapshot')
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        info = None
+    if info is not None and (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1):
+        raise ValueError('invalid_snapshot')
+    fd, temporary = tempfile.mkstemp(prefix='.feedback-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 def build(root, *, timezone_name=DEFAULT_TIMEZONE):
     """Write aggregate JSON/CSV/HTML and return the historical report schema.
 
@@ -90,6 +127,7 @@ def build(root, *, timezone_name=DEFAULT_TIMEZONE):
     """
     _timezone(timezone_name)
     root = Path(root)
+    _check_tree(root)
     items = [i for i in json.loads((root / 'corpus.json').read_text(encoding='utf-8'))['items']
              if i.get('kind') == 'feedback']
     rows = {name: _read_rows(root / name / 'analysis' / 'results.jsonl')
@@ -219,14 +257,14 @@ def _table(groups, name):
 
 
 def _write(root, data):
-    (root / 'report.json').write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8')
+    _write_text(root / 'report.json', json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
     fields = ['week', 'messages']
     for name in LABELS:
         for label in LABELS[name]:
             fields += [f'{name}_{label}_count', f'{name}_{label}_rate']
         fields += [f'{name}_{k}' for k in ('ok', 'no_signal', 'unknown', 'failed', 'unprocessed', 'partial', 'signal_total', 'signal_rate')]
         fields += [f'{name}_{k}_rate' for k in ('ok', 'no_signal', 'unknown', 'failed', 'unprocessed')]
-    with (root / 'weekly.csv').open('w', encoding='utf-8', newline='') as stream:
+    with io.StringIO(newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for week in data['weeks']:
@@ -241,6 +279,7 @@ def _write(root, data):
                 for k, value in s['status_rates'].items():
                     row[f'{name}_{k}_rate'] = value
             writer.writerow(row)
+        _write_text(root / 'weekly.csv', stream.getvalue())
     parts = ['<!doctype html><html lang="pt-BR"><meta charset="utf-8">',
              '<title>Tendências semanais de feedback</title>',
              '<style>body{font:16px system-ui;margin:28px;color:#222}svg{width:1000px;min-width:1000px}'
@@ -278,7 +317,7 @@ def _write(root, data):
     parts += ['<p>Taxas do resumo usam todas as mensagens do respectivo grupo. '
               'Timestamp: primeira proveniência válida; ISO sem offset é interpretado no fuso local. '
               'Classificações são dados de entrada; este relatório não executa modelos nem mede sua acurácia.</p></html>']
-    (root / 'report.html').write_text(''.join(parts), encoding='utf-8')
+    _write_text(root / 'report.html', ''.join(parts))
 
 
 if __name__ == '__main__':

@@ -96,6 +96,8 @@ O intervalo apresentado corresponde aos dados disponíveis no snapshot e à sele
 
 Somente o home escolhido é lido; outros perfis não são descobertos nem analisados automaticamente. Credenciais e configurações ficam fora do escopo. SQLite é leitura de dados/esquema, não promessa de pasta forense imutável: sidecars WAL/SHM podem ser criados/atualizados.
 
+Use uma pasta de campanha própria, sem alterações concorrentes por outros processos. O pipeline e as APIs independentes de relatório/projeção recusam links simbólicos, arquivos com múltiplos vínculos (hardlinks) e arquivos especiais na árvore da campanha antes de gerar saídas. Relatórios, projeções e dashboard são gravados em temporários privados e substituídos atomicamente, sem truncar destinos previamente vinculados a arquivos externos. Isso não é uma sandbox contra um processo que já tenha permissão de modificar os diretórios simultaneamente.
+
 Mantenha **home, corpus, checkpoints, CSV/JSON/JSONL e HTML privados**, mesmo quando os relatórios forem agregados. Publique apenas código, documentação e fixtures sintéticas revisadas; não copie contagens, controles ou dados pessoais do autor para demonstrar resultados do consumidor.
 
 [Voltar ao README](../README.md) · [Prompt para outro Hermes](../COMECE_AQUI.md) · [Fluxo modular](MODULAR.md)
