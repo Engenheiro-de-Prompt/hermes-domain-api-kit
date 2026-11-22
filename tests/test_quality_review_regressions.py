@@ -44,10 +44,10 @@ def campaign():
     thread.start()
     try:
         with tempfile.TemporaryDirectory() as td:
-            key = Path(td) / 'key'
+            key = Path(td).resolve() / 'key'
             key.write_text('synthetic-only')
             key.chmod(0o600)
-            work = Path(td) / 'campaign'
+            work = Path(td).resolve() / 'campaign'
             env = dict(os.environ)
             env.pop('HERMES_CLASSIFIER_API_KEY', None)
 

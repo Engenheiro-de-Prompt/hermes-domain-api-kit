@@ -76,7 +76,8 @@ class StoryTests(unittest.TestCase):
         import subprocess
         import sys
         import tempfile
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as temporary:
+            td = str(Path(temporary).resolve())
             args = [sys.executable, '-B', 'cli.py', 'quality-report', '--input',
                     str(ROOT / 'examples/quality-events.synthetic.json'), '--tenant', 'synthetic', '--work', td]
             result = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)

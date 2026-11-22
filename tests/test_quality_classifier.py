@@ -38,6 +38,7 @@ class ClassifierTests(unittest.TestCase):
         before = copy.deepcopy(events)
         client = Client()
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
             self.assertEqual(len(labels), 1)
             label = labels[0]
@@ -71,6 +72,7 @@ class ClassifierTests(unittest.TestCase):
         events = [event()]
         client = Malformed()
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
             self.assertEqual(labels[0]['label_value'], 'indeterminado')
             self.assertIsNone(labels[0]['classifier_score_raw'])
@@ -87,6 +89,7 @@ class ClassifierTests(unittest.TestCase):
         before = copy.deepcopy(events)
         client = Client(('sim', 'nao'))
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
         self.assertEqual(labels[0]['label_value'], 'indeterminado')
         self.assertIsNone(labels[0]['classifier_score_raw'])
@@ -104,6 +107,7 @@ class ClassifierTests(unittest.TestCase):
         before = copy.deepcopy(events)
         client = Client(('resolvida_com_evidencia',))
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
             self.assertEqual(len(labels), 1)
             self.assertEqual(labels[0]['label_name'], 'outcome')
@@ -123,6 +127,7 @@ class ClassifierTests(unittest.TestCase):
         events.append({key: value for key, value in event().items() if key != 'text'})
         client = Client()
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             output = Path(temporary) / 'unused'
             self.assertEqual(quality_classifier.classify_events(events, client, 'synthetic-model', output), [])
             self.assertFalse(output.exists())
@@ -133,6 +138,7 @@ class ClassifierTests(unittest.TestCase):
                                  text='Ainda falta executar os testes.')]
         before = copy.deepcopy(events)
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             first = Client(('nao', 'parcialmente_resolvida'))
             labels = quality_classifier.classify_events(iter(events), first, 'synthetic-model', temporary)
             self.assertEqual([label['label_name'] for label in labels], ['explicit_user_correction', 'outcome'])
@@ -148,6 +154,7 @@ class ClassifierTests(unittest.TestCase):
 
     def test_multiple_unanimous_chunks_have_no_fabricated_single_label_score(self):
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             client = Client(('sim', 'sim'))
             labels = quality_classifier.classify_events([event(text='a' * 2401)], client, 'synthetic-model', temporary)
         self.assertEqual(labels[0]['label_value'], 'sim')
@@ -156,6 +163,7 @@ class ClassifierTests(unittest.TestCase):
 
     def test_single_chunk_abstention_keeps_raw_distribution_not_accuracy(self):
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             labels = quality_classifier.classify_events([event()], Client(('indeterminado',)), 'synthetic-model', temporary)
         self.assertEqual(labels[0]['label_value'], 'indeterminado')
         self.assertEqual(labels[0]['classifier_score_raw'], 1)
@@ -171,6 +179,7 @@ class ClassifierTests(unittest.TestCase):
 
         events = [event(actor='assistant', event_type='delivery')]
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             client = Failed()
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
             self.assertEqual(labels[0]['label_value'], 'indeterminada')
@@ -183,6 +192,7 @@ class ClassifierTests(unittest.TestCase):
 
     def test_partial_chunk_failure_overrides_high_success_score(self):
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             # Second label is invalid for this rubric, after a high-score success.
             labels = quality_classifier.classify_events([event(text='a' * 2401)], Client(('sim', 'invalid')), 'synthetic-model', temporary)
         self.assertEqual(labels[0]['label_value'], 'indeterminado')
@@ -192,6 +202,7 @@ class ClassifierTests(unittest.TestCase):
     def test_original_identity_distinguishes_sources_and_unknown_task_stays_unknown(self):
         events = [event(task_id=None), event(source_id='other-source', task_id=None)]
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             client = Client(('sim', 'nao'))
             labels = quality_classifier.classify_events(events, client, 'synthetic-model', temporary)
         self.assertEqual(len(client.calls), 2)
@@ -201,6 +212,7 @@ class ClassifierTests(unittest.TestCase):
 
     def test_changed_campaign_rejected_without_calls(self):
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             quality_classifier.classify_events([event()], Client(), 'synthetic-model', temporary)
             client = Client()
             with self.assertRaisesRegex(ValueError, '^campaign_mismatch$'):
@@ -212,6 +224,7 @@ class ClassifierTests(unittest.TestCase):
         events = [event(), event(event_id='delivery', actor='assistant', event_type='delivery')]
         for rubric in ('quality_correction', 'quality_outcome'):
             with tempfile.TemporaryDirectory() as temporary:
+                temporary = Path(temporary).resolve()
                 quality_classifier.classify_events(events, Client(('sim', 'nao_resolvida')),
                                                    'synthetic-model', temporary)
                 lost = Path(temporary) / rubric
@@ -228,6 +241,7 @@ class ClassifierTests(unittest.TestCase):
 
     def test_missing_checkpoint_not_recreated_or_replayed(self):
         with tempfile.TemporaryDirectory() as temporary:
+            temporary = Path(temporary).resolve()
             quality_classifier.classify_events([event()], Client(), 'synthetic-model', temporary)
             directory = Path(temporary) / 'quality_correction'
             (directory / 'manifest.json').unlink()

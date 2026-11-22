@@ -1,4 +1,5 @@
 """Aceites offline: eventos e fontes exclusivamente sintéticos."""
+from contextlib import closing
 import json
 from pathlib import Path
 import subprocess
@@ -85,8 +86,8 @@ class QualityTests(unittest.TestCase):
         import selection
         import sqlite3
         with tempfile.TemporaryDirectory() as td:
-            home = Path(td)
-            with sqlite3.connect(home / 'state.db') as db:
+            home = Path(td).resolve()
+            with closing(sqlite3.connect(home / 'state.db')) as db, db:
                 db.execute('CREATE TABLE sessions(id TEXT)')
                 db.execute("INSERT INTO sessions VALUES ('s')")
                 db.execute('CREATE TABLE messages(id INTEGER, session_id TEXT, role TEXT, content TEXT, timestamp REAL)')
@@ -146,7 +147,7 @@ class QualityTests(unittest.TestCase):
     def test_cli_frozen_campaign_rejects_changed_input_and_preserves_outputs(self):
         events = [event('1', 'request', 0)]
         with tempfile.TemporaryDirectory() as td:
-            source, work = Path(td) / 'events.json', Path(td) / 'work'
+            source, work = Path(td).resolve() / 'events.json', Path(td).resolve() / 'work'
             source.write_text(json.dumps({'schema_version': 1, 'events': events}))
             cmd = [sys.executable, '-B', str(ROOT / 'cli.py'), 'quality-report',
                    '--input', str(source), '--tenant', 'synthetic', '--work', str(work)]
@@ -218,7 +219,7 @@ class QualityTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         try:
             with tempfile.TemporaryDirectory() as td:
-                source, key, work = Path(td) / 'events.json', Path(td) / 'client.key', Path(td) / 'work'
+                source, key, work = Path(td).resolve() / 'events.json', Path(td).resolve() / 'client.key', Path(td).resolve() / 'work'
                 key.write_text('synthetic-key'); key.chmod(0o600)
                 events = [event('1', 'request', 0), event('2', 'attempt', 1, attempt_id='a1'),
                           event('3', 'delivery', 2, actor='assistant', text='Entrega feita, conforme alegado pelo assistente.')]
@@ -254,7 +255,7 @@ class QualityTests(unittest.TestCase):
 
     def test_classifier_budget_blocks_before_any_client_or_secret_read(self):
         with tempfile.TemporaryDirectory() as td:
-            source, work = Path(td) / 'events.json', Path(td) / 'work'
+            source, work = Path(td).resolve() / 'events.json', Path(td).resolve() / 'work'
             source.write_text(json.dumps({'schema_version': 1, 'events': [event('1', 'delivery', 0, actor='assistant', text='x' * 5000)]}))
             proc = subprocess.run([sys.executable, '-B', str(ROOT / 'cli.py'), 'quality-analyze',
                                    '--input', str(source), '--tenant', 'synthetic', '--work', str(work),
@@ -320,9 +321,9 @@ class QualityTests(unittest.TestCase):
                   event('2', 'attempt', 10, attempt_id='a1'),
                   event('3', 'resolved', 60, attempt_id='a1', actor='user')]
         with tempfile.TemporaryDirectory() as td:
-            source = Path(td) / 'events.json'
+            source = Path(td).resolve() / 'events.json'
             source.write_text(json.dumps({'schema_version': 1, 'events': events}))
-            work = Path(td) / 'work'
+            work = Path(td).resolve() / 'work'
             proc = subprocess.run([sys.executable, '-B', str(ROOT / 'cli.py'),
                                    'quality-report', '--input', str(source), '--tenant',
                                    'synthetic', '--work', str(work)], capture_output=True, text=True)

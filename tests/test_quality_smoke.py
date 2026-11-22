@@ -34,8 +34,8 @@ class SmokeTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
         try:
             with tempfile.TemporaryDirectory() as td:
-                key = Path(td) / 'key'; key.write_text('synthetic-only'); key.chmod(0o600)
-                work = Path(td) / 'campaign'
+                key = Path(td).resolve() / 'key'; key.write_text('synthetic-only'); key.chmod(0o600)
+                work = Path(td).resolve() / 'campaign'
                 command = [sys.executable, '-B', str(ROOT / 'cli.py'), 'quality-smoke',
                     '--work', str(work), '--base-url', f'http://127.0.0.1:{server.server_port}/v1',
                     '--key-file', str(key), '--max-classifier-calls', '7', '--allow-relay']
