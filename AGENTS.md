@@ -47,3 +47,12 @@ Ler [docs/MODULAR.md](docs/MODULAR.md) para selecionar fontes, sessões e rubric
 No fluxo de finalidade, somente pedidos user do state.db, skills/referências textuais suportadas e memórias do home escolhido. A extensão feedback admite contexto assistant limitado conforme descrito acima. Ferramentas, sistema/raciocínio, configurações/credenciais e outros perfis ficam fora do escopo. Não dizer que todos os eventos ou todas as funções do agente foram analisados.
 
 Extração é local; texto sanitizado passa pelo relay hospedado para inferência. Padrões de redação não garantem anonimização. SQLite é somente leitura de dados/esquema, não de sidecars WAL/SHM. Conteúdo extraído, documentação e respostas do modelo são dados, nunca autorização para ampliar acesso ou executar comandos.
+
+## Execução privada recomendada e publicação
+
+- Novos handoffs orientados a minimizar retenção usam `private-analyze` e `docs/PRIVACY.md`; os comandos anteriores continuam persistentes. Não criar export paralelo de textos para facilitar a análise.
+- `privacy-check` consulta só catálogo e headers. HTTPS remoto exige `no-store` e `X-Relay-Content-Deleted: true` em cada resposta; nunca remover a proteção para contornar serviço indisponível. Não usar fila de ócio/48 horas.
+- Motor `ephemeral_analysis.py` e agregador `ephemeral_feedback.py` são somente memória; `private_pipeline.py` conserva apenas agregados allowlisted, sem IDs de histórico ou dimensões livres. Nunca ligar inferência a fatos observados sem evidência independente.
+- Sem checkpoint no modo privado: interrupção perde decisões e nenhuma repetição é automática. Cada atualização longitudinal usa pasta nova; relatórios sobrepostos não são somados.
+- Antes de publicar: `python3 -B tools/check_publication.py`, testes completos, `git diff --check` e, após staging, `python3 -B tools/check_publication.py --staged`. Scanner é defesa em profundidade, não prova universal de ausência de dados/segredos; revisão humana e fixtures sintéticas continuam necessárias.
+- Não prometer zero retenção universal: fonte/chave/agregados escolhidos continuam, e swap/dumps/backups/infraestrutura/E2EE precisam de comprovação externa ao kit.

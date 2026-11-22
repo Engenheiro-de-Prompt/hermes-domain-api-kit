@@ -2,6 +2,51 @@
 
 **Classifique pedidos, skills e memórias por finalidade — ou escolha uma rubrica modular para analisar correções, redirecionamentos e insatisfação. Sem instalar modelos no outro PC.**
 
+## Recomendado: análises privadas, gráficos automáticos e payloads só em memória
+
+```sh
+python3 -B cli.py privacy-check --key-file "/caminho/privado/client.key"
+python3 -B cli.py private-analyze --home "/caminho/do/perfil-autorizado" \
+  --work "/caminho/privado/agregados-novos" --key-file "/caminho/privado/client.key" \
+  --timezone UTC --max-classifier-calls 100 --allow-relay
+```
+
+Executa finalidade, satisfação, correções e inferências auxiliares de qualidade, com teto global antes da chave. Grava somente agregados em `dashboard.html`, `feedback.html`, `report.json`, `narrative.json` e `privacy.json`. Não cria corpus, resposta bruta, decisão por item ou checkpoint. Exige perfil explícito e pasta nova fora dele/do checkout; não explora outros perfis, instala modelos ou agenda tarefas.
+
+**HTTPS remoto + `no-store` + `X-Relay-Content-Deleted: true` obrigatórios.** Sem confirmação, falha fechada. A fila de ócio/48 horas não é usada. Payloads somente em memória não apagam o histórico original, não cifram agregados, não provam ausência de swap/backups e não são E2EE nem apagamento físico universal. Agregados privados não são anônimos.
+
+**[Contrato, execução, evolução histórica e limites de privacidade](docs/PRIVACY.md)** · **[Prompt completo para outro Hermes](COMECE_AQUI.md)**. O exemplo offline abaixo não exige API; uma campanha real exige chave CLIENT e servidor imediato disponível. Os comandos históricos preservados no restante do README **são persistentes**, não substitutos desse modo privado.
+
+## Novo: qualidade e resolução por tarefa, com evidências
+
+```bash
+python3 -B cli.py quality-report --input examples/quality-events.synthetic.json \
+  --tenant synthetic --work /tmp/hermes-quality-demo
+```
+
+Gera `quality/tasks.jsonl`, `quality/report.json` e `quality/dashboard.html` offline. Resolução na primeira tentativa, correções, tentativas extras, intervenções, abandono qualificado, tempo e custos incluem cobertura e indeterminação. **Silêncio não comprova sucesso nem satisfação.** `quality-analyze` adiciona duas inferências provisórias usando o mesmo motor/Clef, com autorização explícita de transmissão e teto de chamadas; não transforma rótulos em fatos. Históricos legados sem vínculos continuam incertos.
+
+**[Contrato, fórmulas, uso, custo, revisão humana e limitações](docs/QUALITY.md)**. Este é um incremento P0/P1 demonstrável, não homologação do modelo nem implementação integral de reincidência/calibração/custos de produção.
+
+## Relatório executivo automático: leitura de negócio + gráficos + storytelling
+
+```sh
+python3 -B examples/generate_quality_demo.py
+```
+
+Gera **`examples/quality-dashboard.synthetic.html` no repositório**, sem chave ou rede.
+Oito indicadores com denominadores, prioridade de leitura, faixas determinísticas,
+ações recomendadas, SVGs, tabelas e recortes por fluxo/classe/versão. O `quality-report`
+e o `quality-analyze` passam a gerar também `quality/narrative.json`, a trilha agregada
+que explica cada frase. Mensagens brutas não são incluídas no HTML.
+
+**[Uso, interpretação e smoke real pequeno](docs/QUALITY_DASHBOARD.md)** ·
+**[Critérios executivos de UX e segurança](docs/QUALITY_DASHBOARD_SPEC.md)**.
+O `quality-smoke` usa sete controles sintéticos congelados e o modelo de fato;
+expõe divergências no HTML e no exit code. A execução local observada foi **5/7**,
+portanto **a integração funciona, mas o classificador não está homologado**.
+O dashboard anterior de feedback e seus comandos continuam disponíveis.
+
 ## Novo: duas análises de feedback e dashboard em um comando
 
 Para analisar satisfação/insatisfação e correções/redirecionamentos de **um perfil autorizado**, sem montar etapas manualmente:
@@ -55,7 +100,7 @@ O kit também separa **misto**, **compartilhado** e **indeterminado** para não 
 
 O texto autorizado passa por um relay HTTPS. A inferência é local **ao servidor**, não ao computador consumidor. Este repositório é o **cliente**, não instala nem configura o servidor.
 
-## Começar em 3 passos
+## Legado persistente: começar em 3 passos
 
 ### 1. Baixe e confira
 

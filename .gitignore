@@ -32,3 +32,12 @@ report.json
 report.html
 dashboard.html
 unique/
+
+# Private payload/validation state, never publish real runs
+labels.json
+narrative.json
+privacy.json
+classification-manifest.json
+smoke-manifest.json
+smoke-result.json
+feedback.html

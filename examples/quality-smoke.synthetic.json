@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "event_id": "correction-explicit",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-0",
+      "task_id": "control-0",
+      "event_type": "request",
+      "timestamp": 1760000000,
+      "actor": "user",
+      "source_complete": false,
+      "text": "O resultado anterior está incorreto: você somou 2 + 2 como 5. Corrija a resposta para 4.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "permission",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-1",
+      "task_id": "control-1",
+      "event_type": "request",
+      "timestamp": 1760000001,
+      "actor": "user",
+      "source_complete": false,
+      "text": "Autorizo continuar a implementação conforme o plano combinado.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "ambiguous",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-2",
+      "task_id": "control-2",
+      "event_type": "request",
+      "timestamp": 1760000002,
+      "actor": "user",
+      "source_complete": false,
+      "text": "Não.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "outcome-concrete",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-3",
+      "task_id": "control-3",
+      "event_type": "delivery",
+      "timestamp": 1760000003,
+      "actor": "assistant",
+      "source_complete": false,
+      "text": "Resultado da execução: o teste soma(2, 2) retornou 4; os 3 testes executados passaram, sem falhas. A entrega solicitada está concluída.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "outcome-partial",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-4",
+      "task_id": "control-4",
+      "event_type": "delivery",
+      "timestamp": 1760000004,
+      "actor": "assistant",
+      "source_complete": false,
+      "text": "O relatório CSV foi entregue; a exportação em PDF ainda está pendente porque o conversor falhou. A solicitação foi atendida somente em parte.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "outcome-failed",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-5",
+      "task_id": "control-5",
+      "event_type": "delivery",
+      "timestamp": 1760000005,
+      "actor": "assistant",
+      "source_complete": false,
+      "text": "Não consegui entregar o arquivo solicitado. O problema permanece sem solução e não há resultado disponível.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    },
+    {
+      "event_id": "outcome-promise",
+      "tenant_id": "synthetic-smoke",
+      "source_id": "synthetic-controls-v1",
+      "session_id": "synthetic-6",
+      "task_id": "control-6",
+      "event_type": "delivery",
+      "timestamp": 1760000006,
+      "actor": "assistant",
+      "source_complete": false,
+      "text": "Vou verificar o problema e tentar resolver em seguida.",
+      "workflow": "controle_sintetico",
+      "agent_version": "smoke-v1"
+    }
+  ]
+}

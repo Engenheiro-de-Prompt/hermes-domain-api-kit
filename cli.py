@@ -7,6 +7,10 @@ from pathlib import Path
 
 DEFAULT_API_BASE_URL='https://homegrown-ai-bridge.lovable.app/api/public/v1'
 ERROR_HINTS={
+    'privacy_confirmation_missing':'A API deve responder no-store e, em HTTPS remoto, X-Relay-Content-Deleted: true. Não remova a proteção nem use a fila de ócio; peça correção ao operador.',
+    'privacy_endpoint_required':'Use somente o endpoint imediato /v1 com HTTPS remoto ou loopback local; a fila assíncrona/ócio de 48 horas não é permitida.',
+    'private_output_exists':'O modo efêmero não retoma nem sobrescreve campanhas. Escolha outra pasta de agregados se uma nova execução for realmente desejada.',
+    'private_source_required':'Informe --home do perfil autorizado OU --input de eventos normalizados com --tenant; nunca ambos.',
     'timezone_data_missing':'Use --timezone UTC (sem dependências) ou instale os dados IANA: python -m pip install -r requirements-timezones.txt.',
     'pipeline_busy':'Outra execução usa esta pasta. Aguarde terminar antes de retomar ou regenerar.',
     'invalid_key':'Use uma chave CLIENT, não AGENT, OpenAI ou backend; forneça por arquivo privado ou prompt local sem eco.',
@@ -32,7 +36,7 @@ class SafeArgumentParser(argparse.ArgumentParser):
 
 def parser():
     p=SafeArgumentParser(description='Classifique seu Hermes sem modelos neste PC. Use chave CLIENT, não AGENT.',epilog='Fluxo completo autorizado: python3 cli.py classify-all --allow-relay --work ../minha-classificacao. Guia: README.md e docs/USAGE.md.')
-    p.add_argument('command',choices=['classify-all','models','verify','extract','run','rubrics','extract-selected','analyze','verify-analysis','feedback-all','feedback-report'],help='Fluxo automático: feedback-all; dashboard offline: feedback-report. Legado e comandos modulares preservados.')
+    p.add_argument('command',choices=['classify-all','models','verify','extract','run','rubrics','extract-selected','analyze','verify-analysis','feedback-all','feedback-report','quality-report','quality-analyze','quality-smoke','private-analyze','privacy-check'],help='Fluxo automático: feedback-all; dashboard offline: feedback-report. Legado e comandos modulares preservados.')
     p.add_argument('--base-url',default=os.environ.get('HERMES_CLASSIFIER_API_BASE') or DEFAULT_API_BASE_URL)
     p.add_argument('--key-file',default=os.environ.get('HERMES_CLASSIFIER_KEY_FILE'))
     p.add_argument('--home',help='HERMES_HOME selecionado; não explora outros perfis')
@@ -46,8 +50,12 @@ def parser():
     p.add_argument('--delegation', choices=['all','human','subagent'], default='human', help='Seleção modular: human exclui subagentes por padrão')
     p.add_argument('--context-chars', type=int, default=1200, help='Contexto auxiliar de feedback, 0 a 1200 caracteres')
     p.add_argument('--timeout',type=float,default=145)
+    p.add_argument('--dry-run', action='store_true', help='Somente private-analyze: calcula plano sem chave, rede ou arquivos')
     p.add_argument('--cutoff',help='Corte YYYY-MM-DD do dashboard; somente feedback-all/feedback-report')
     p.add_argument('--timezone',default='America/Sao_Paulo',help='Calendário dos relatórios; UTC funciona sem base IANA, inclusive no Windows')
+    p.add_argument('--max-classifier-calls', type=int, default=100, help='quality-analyze: teto prévio de segmentos; padrão 100')
+    p.add_argument('--input', help='JSON de eventos normalizados autorizado, offline')
+    p.add_argument('--tenant', help='Tenant exato autorizado; mistura é recusada')
     return p
 
 
@@ -74,7 +82,8 @@ def configured_client(args):
     import warnings
     from api_client import RelayClient
     # Validate destination and timeout BEFORE reading any secret file.
-    RelayClient(args.base_url,'validation-only-synthetic',timeout=args.timeout)
+    privacy = {'require_privacy': True} if getattr(args, 'command', None) in ('private-analyze', 'privacy-check') else {}
+    RelayClient(args.base_url,'validation-only-synthetic',timeout=args.timeout, **privacy)
     key=os.environ.get('HERMES_CLASSIFIER_API_KEY')
     if not key and args.key_file:
         path=Path(args.key_file).expanduser()
@@ -86,7 +95,7 @@ def configured_client(args):
         with warnings.catch_warnings():
             warnings.simplefilter('error',getpass.GetPassWarning)
             key=getpass.getpass('Chave CLIENT (sem eco): ').strip()
-    client=RelayClient(args.base_url,key,timeout=args.timeout)
+    client=RelayClient(args.base_url,key,timeout=args.timeout, **privacy)
     client.base_url=args.base_url.rstrip('/')
     return client
 
@@ -107,11 +116,27 @@ def select_model(client, requested):
 def main(argv=None):
     args=parser().parse_args(argv)
     old_umask=os.umask(0o077)
-    if args.command in ('run','classify-all','analyze','verify-analysis','feedback-all') and not args.allow_relay:
+    if args.command in ('run','classify-all','analyze','verify-analysis','feedback-all','quality-analyze','quality-smoke','private-analyze') and not args.allow_relay and not (args.command == 'private-analyze' and args.dry_run):
         print(json.dumps({'error':'relay_consent_required','hint':ERROR_HINTS['relay_consent_required']},ensure_ascii=False),file=sys.stderr)
         os.umask(old_umask)
         return 2
     try:
+        if args.dry_run and args.command != 'private-analyze':
+            raise ValueError('selection_invalid')
+        if args.command == 'private-analyze':
+            from private_pipeline import execute
+            return execute(args)
+        if args.command == 'privacy-check':
+            from private_pipeline import check
+            return check(args)
+        if args.command == 'quality-smoke':
+            from quality_smoke import execute
+            return execute(args)
+        if args.command in ('quality-report', 'quality-analyze'):
+            from quality import execute
+            return execute(args)
+        if args.input or args.tenant:
+            raise ValueError('quality_options_require_quality_command')
         if args.command in ('feedback-all','feedback-report'):
             from feedback_pipeline import execute
             return execute(args)
@@ -206,7 +231,7 @@ def main(argv=None):
         raise ValueError('command_not_implemented')
     except Exception as error:
         # Never echo paths, URL inputs, keys, private texts or remote error bodies.
-        allowed={'timezone_data_missing','pipeline_busy','snapshot_already_exists_use_new_work','work_must_be_outside_repository','checkpoint_incomplete','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch','explicit_work_required','selection_options_only_at_extraction','rubric_source_mismatch','selection_invalid','invalid_rubric','invalid_snapshot','unsupported_verification_rubric','modular_options_require_modular_command'}
+        allowed={'insecure_output_permissions','private_source_required','private_output_exists','classifier_budget_exceeded','quality_input_required','invalid_quality_input','invalid_event','tenant_mismatch','event_identity_conflict','invalid_observation_window','events_after_observation_window','invalid_work','quality_input_too_large','quality_options_require_quality_command','timezone_data_missing','pipeline_busy','snapshot_already_exists_use_new_work','work_must_be_outside_repository','checkpoint_incomplete','campaign_mismatch','incomplete_corpus','invalid_limit','empty_corpus','snapshot_integrity_failed','invalid_catalog','classifier_not_advertised','choose_clef_model_from_catalog','key_not_provisioned','invalid_key_file','insecure_key_file_permissions','incomplete_result_artifacts','invalid_result_directory','invalid_result_artifacts','source_home_mismatch','explicit_work_required','selection_options_only_at_extraction','rubric_source_mismatch','selection_invalid','invalid_rubric','invalid_snapshot','unsupported_verification_rubric','modular_options_require_modular_command'}
         code=str(error) if isinstance(error,ValueError) and str(error) in allowed else type(error).__name__
         from api_client import ClientError
         if isinstance(error,ClientError):code=error.code

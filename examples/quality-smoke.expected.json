@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "scope": "Controles sintéticos exploratórios, não homologação; gabarito congelado antes da inferência.",
+  "checks": [
+    {
+      "event_id": "correction-explicit",
+      "label_name": "explicit_user_correction",
+      "expected": "sim"
+    },
+    {
+      "event_id": "permission",
+      "label_name": "explicit_user_correction",
+      "expected": "nao"
+    },
+    {
+      "event_id": "ambiguous",
+      "label_name": "explicit_user_correction",
+      "expected": "indeterminado"
+    },
+    {
+      "event_id": "outcome-concrete",
+      "label_name": "outcome",
+      "expected": "resolvida_com_evidencia"
+    },
+    {
+      "event_id": "outcome-partial",
+      "label_name": "outcome",
+      "expected": "parcialmente_resolvida"
+    },
+    {
+      "event_id": "outcome-failed",
+      "label_name": "outcome",
+      "expected": "nao_resolvida"
+    },
+    {
+      "event_id": "outcome-promise",
+      "label_name": "outcome",
+      "expected": "indeterminada"
+    }
+  ]
+}

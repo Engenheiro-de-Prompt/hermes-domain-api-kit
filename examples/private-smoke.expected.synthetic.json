@@ -1,0 +1,14 @@
+{
+  "fixture": "private-smoke.synthetic.json",
+  "fixture_sha256": "3c11cd8e0fc692347f4e10a54360c7004d3d76a7bdc39adb75add8cba1bedc73",
+  "frozen_before_live_run": true,
+  "purpose": "Integration controls only; one item per rubric cannot homologate a model.",
+  "expected_aggregate_labels": {
+    "domain": {"profissional": 1},
+    "satisfaction": {"positivo": 1},
+    "corrections": {"sem_intervencao": 1},
+    "quality_correction": {"nao": 1},
+    "quality_outcome": {"indeterminada": 1}
+  },
+  "operational_truth": "These two events do not prove task resolution, first-attempt success, failure or objective absence of correction. Model labels remain provisional."
+}

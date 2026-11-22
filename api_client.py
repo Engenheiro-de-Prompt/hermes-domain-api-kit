@@ -71,9 +71,26 @@ class ClientError(Exception):
         super().__init__(code)
 
 
+def privacy_destination(value):
+    parts = _destination(value)
+    if ('%' in parts.path or not parts.path.rstrip('/').endswith('/v1')
+            or any(segment.lower() == 'host' for segment in parts.path.split('/'))):
+        raise ClientError('privacy_endpoint_required')
+    return parts
+
+
+def _privacy_headers(getheader, *, remote):
+    cache = (getheader('Cache-Control') or '').lower().split(',')
+    if ('no-store' not in {part.strip() for part in cache}
+            or remote and (getheader('X-Relay-Content-Deleted') or '').strip().lower() != 'true'):
+        raise ClientError('privacy_confirmation_missing')
+
+
 class RelayClient:
-    def __init__(self, base_url, key, timeout=145):
-        self._parts = _destination(base_url)
+    def __init__(self, base_url, key, timeout=145, *, require_privacy=False):
+        self._parts = privacy_destination(base_url) if require_privacy else _destination(base_url)
+        self.require_privacy = require_privacy
+        self.privacy_failure = None
         if (not isinstance(key, str) or not key or not key.isascii()
                 or any(ord(c) <= 32 or ord(c) == 127 for c in key)
                 or key.startswith('lr_agent')):
@@ -101,6 +118,8 @@ class RelayClient:
         return self._request('POST', '/classifications', body)
 
     def _request(self, method, route, body=None):
+        if self.privacy_failure is not None:
+            raise ClientError(self.privacy_failure)
         deadline = time.monotonic() + self._timeout
         parts = self._parts
         port = parts.port or (443 if parts.scheme == 'https' else 80)
@@ -112,6 +131,8 @@ class RelayClient:
         def remaining():
             left = deadline - time.monotonic()
             if left <= 0:
+                if self.require_privacy:
+                    self.privacy_failure = 'timeout'
                 raise ClientError('timeout')
             return left
 
@@ -157,10 +178,20 @@ class RelayClient:
                 'Authorization': 'Bearer ' + self._key,
                 'X-Relay-Timeout': str(min(120, self._timeout)),
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+                'Pragma': 'no-cache',
             })
             response = conn.getresponse()
             if not 200 <= response.status < 300:
+                if self.require_privacy:
+                    self.privacy_failure = f'http_{response.status}'
                 raise ClientError(f'http_{response.status}')
+            if self.require_privacy:
+                try:
+                    _privacy_headers(response.getheader, remote=parts.scheme == 'https')
+                except ClientError:
+                    self.privacy_failure = 'privacy_confirmation_missing'
+                    raise
             data = response.read(2 * 1024 * 1024 + 1)
             remaining()
             if len(data) > 2 * 1024 * 1024:
@@ -179,6 +210,8 @@ class RelayClient:
             return result
         except (OSError, http.client.HTTPException):
             code = 'timeout' if expired.is_set() or time.monotonic() >= deadline else 'transport_error'
+            if self.require_privacy:
+                self.privacy_failure = code
             raise ClientError(code) from None
         finally:
             if timer is not None:

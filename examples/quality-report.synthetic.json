@@ -1,0 +1,417 @@
+{
+  "classifier": {
+    "cost_unknown_reason": "classifier_billing_telemetry_not_available",
+    "distribution": {},
+    "estimated_full_campaign_calls": 5,
+    "failed": 0,
+    "indeterminate": 0,
+    "labels": 0,
+    "max_calls_budget": 100,
+    "models": [],
+    "monetary_cost": null,
+    "review_required": 0,
+    "score_type": "model_class_distribution_uncalibrated",
+    "semantic_qualification": "not_established"
+  },
+  "coverage": {
+    "duplicate_events": 0,
+    "fields": {
+      "actor": {
+        "present": 8,
+        "total": 22
+      },
+      "agent_id": {
+        "present": 22,
+        "total": 22
+      },
+      "agent_version": {
+        "present": 22,
+        "total": 22
+      },
+      "association_uncertain": {
+        "present": 0,
+        "total": 22
+      },
+      "attempt_id": {
+        "present": 12,
+        "total": 22
+      },
+      "correction_type": {
+        "present": 2,
+        "total": 22
+      },
+      "cost": {
+        "present": 7,
+        "total": 22
+      },
+      "currency": {
+        "present": 7,
+        "total": 22
+      },
+      "event_id": {
+        "present": 22,
+        "total": 22
+      },
+      "event_type": {
+        "present": 22,
+        "total": 22
+      },
+      "failure_class": {
+        "present": 2,
+        "total": 22
+      },
+      "intervention_type": {
+        "present": 0,
+        "total": 22
+      },
+      "session_id": {
+        "present": 22,
+        "total": 22
+      },
+      "severity": {
+        "present": 2,
+        "total": 22
+      },
+      "source_complete": {
+        "present": 22,
+        "total": 22
+      },
+      "source_id": {
+        "present": 22,
+        "total": 22
+      },
+      "task_class": {
+        "present": 22,
+        "total": 22
+      },
+      "task_id": {
+        "present": 22,
+        "total": 22
+      },
+      "tenant_id": {
+        "present": 22,
+        "total": 22
+      },
+      "timestamp": {
+        "present": 22,
+        "total": 22
+      },
+      "tokens": {
+        "present": 7,
+        "total": 22
+      },
+      "workflow": {
+        "present": 22,
+        "total": 22
+      }
+    },
+    "missing_task_id": 0,
+    "missing_timestamp": 0,
+    "partial_source_events": 0,
+    "unique_events": 22
+  },
+  "limitations": [
+    "Sem validação humana do classificador; ausência de correção não mede satisfação."
+  ],
+  "metrics": {
+    "abandonment": {
+      "explicit": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 1,
+        "value": 0.16666666666666666,
+        "wilson95": {
+          "lower": 0.030053369748306635,
+          "upper": 0.5635028221864702
+        }
+      },
+      "natural_session_end": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 0,
+        "value": 0.0,
+        "wilson95": {
+          "lower": 2.7755575615628914e-17,
+          "upper": 0.3903342879021653
+        }
+      },
+      "not_applicable": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 3,
+        "value": 0.5,
+        "wilson95": {
+          "lower": 0.1876163064826506,
+          "upper": 0.8123836935173494
+        }
+      },
+      "possible": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 0,
+        "value": 0.0,
+        "wilson95": {
+          "lower": 2.7755575615628914e-17,
+          "upper": 0.3903342879021653
+        }
+      },
+      "right_censored": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 2,
+        "value": 0.3333333333333333,
+        "wilson95": {
+          "lower": 0.09677141110578041,
+          "upper": 0.700006684861608
+        }
+      },
+      "unknown": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 0,
+        "value": 0.0,
+        "wilson95": {
+          "lower": 2.7755575615628914e-17,
+          "upper": 0.3903342879021653
+        }
+      }
+    },
+    "action_failures": {
+      "count": 0,
+      "tasks": {
+        "coverage": {
+          "known": 6,
+          "total": 6,
+          "unknown": 0,
+          "unknown_ratio": 0.0,
+          "value": 1.0
+        },
+        "denominator": 6,
+        "numerator": 0,
+        "value": 0.0,
+        "wilson95": {
+          "lower": 2.7755575615628914e-17,
+          "upper": 0.3903342879021653
+        }
+      }
+    },
+    "cost_per_resolved_task": {
+      "attributable_tasks": 6,
+      "coverage": {
+        "known": 5,
+        "total": 6,
+        "unknown": 1,
+        "unknown_ratio": 0.16666666666666666,
+        "value": 0.8333333333333334
+      },
+      "currency": "USD",
+      "denominator": 3,
+      "excluded_uncertain_tasks": 0,
+      "numerator": null,
+      "unknown_reasons": [
+        "missing_cost",
+        "missing_currency"
+      ],
+      "value": null
+    },
+    "cost_total": {
+      "attributable_tasks": 6,
+      "coverage": {
+        "known": 5,
+        "total": 6,
+        "unknown": 1,
+        "unknown_ratio": 0.16666666666666666,
+        "value": 0.8333333333333334
+      },
+      "currency": "USD",
+      "excluded_uncertain_tasks": 0,
+      "unknown_reasons": [
+        "missing_cost",
+        "missing_currency"
+      ],
+      "value": null
+    },
+    "extra_attempts": {
+      "count": 6,
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "median": 0,
+      "p75": 1,
+      "p90": 1,
+      "p95": 1,
+      "sum": 2
+    },
+    "first_attempt_resolution": {
+      "coverage": {
+        "known": 4,
+        "total": 6,
+        "unknown": 2,
+        "unknown_ratio": 0.3333333333333333,
+        "value": 0.6666666666666666
+      },
+      "denominator": 4,
+      "numerator": 1,
+      "value": 0.25,
+      "wilson95": {
+        "lower": 0.04558726080970055,
+        "upper": 0.6993581574175981
+      }
+    },
+    "interventions": {},
+    "no_observed_correction": {
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "denominator": 6,
+      "numerator": 4,
+      "value": 0.6666666666666666,
+      "wilson95": {
+        "lower": 0.299993315138392,
+        "upper": 0.9032285888942195
+      }
+    },
+    "resolution_seconds": {
+      "count": 3,
+      "coverage": {
+        "known": 3,
+        "total": 6,
+        "unknown": 3,
+        "unknown_ratio": 0.5,
+        "value": 0.5
+      },
+      "median": 180,
+      "p75": 240,
+      "p90": 240,
+      "p95": 240,
+      "sum": 480
+    },
+    "resolved_with_evidence": {
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "denominator": 6,
+      "numerator": 3,
+      "value": 0.5,
+      "wilson95": {
+        "lower": 0.1876163064826506,
+        "upper": 0.8123836935173494
+      }
+    },
+    "tasks_with_correction": {
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "denominator": 6,
+      "numerator": 2,
+      "value": 0.3333333333333333,
+      "wilson95": {
+        "lower": 0.09677141110578041,
+        "upper": 0.700006684861608
+      }
+    },
+    "tokens": {
+      "count": 5,
+      "coverage": {
+        "known": 5,
+        "total": 6,
+        "unknown": 1,
+        "unknown_ratio": 0.16666666666666666,
+        "value": 0.8333333333333334
+      },
+      "median": 300,
+      "p75": 400,
+      "p90": 500,
+      "p95": 500,
+      "sum": 1350
+    },
+    "unknown_resolution": {
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "denominator": 6,
+      "numerator": 2,
+      "value": 0.3333333333333333,
+      "wilson95": {
+        "lower": 0.09677141110578041,
+        "upper": 0.700006684861608
+      }
+    },
+    "unresolved": {
+      "coverage": {
+        "known": 6,
+        "total": 6,
+        "unknown": 0,
+        "unknown_ratio": 0.0,
+        "value": 1.0
+      },
+      "denominator": 6,
+      "numerator": 1,
+      "value": 0.16666666666666666,
+      "wilson95": {
+        "lower": 0.030053369748306635,
+        "upper": 0.5635028221864702
+      }
+    }
+  },
+  "pipeline_run_id": "e73bd5c11076b2a4b79794750166204e659eea51258cd3311bb8f383276d2aae",
+  "pipeline_version": "quality-v1",
+  "schema_version": 1,
+  "total_tasks": 6
+}

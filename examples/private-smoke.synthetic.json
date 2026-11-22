@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "events": [
+    {"source_id":"synthetic-private-smoke","event_id":"user-1","tenant_id":"synthetic-private-smoke","session_id":"synthetic-session","task_id":"synthetic-task","timestamp":1711929600,"event_type":"request","actor":"user","text":"Obrigado, o relatório anterior ficou perfeito. Agora escreva um resumo profissional para minha candidatura de emprego."},
+    {"source_id":"synthetic-private-smoke","event_id":"assistant-1","tenant_id":"synthetic-private-smoke","session_id":"synthetic-session","task_id":"synthetic-task","timestamp":1711929601,"event_type":"attempt","actor":"assistant","text":"Posso escrever o resumo; ainda não gerei o texto e não executei nenhuma ação."}
+  ]
+}

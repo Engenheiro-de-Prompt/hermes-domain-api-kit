@@ -21,6 +21,8 @@ jobs:
           python-version: '3.11'
       - name: IANA timezone data (portable report calendars)
         run: python -m pip install -r requirements-timezones.txt
+      - name: Check public content
+        run: python -B tools/check_publication.py
       - name: Offline synthetic tests
         env:
           PYTHONDONTWRITEBYTECODE: '1'
@@ -28,4 +30,4 @@ jobs:
           HERMES_CLASSIFIER_API_KEY: ''
           HERMES_CLASSIFIER_KEY_FILE: ''
           HERMES_CLASSIFIER_API_BASE: ''
-        run: python -m unittest discover -s tests -v
+        run: python -B -m unittest discover -s tests -q
