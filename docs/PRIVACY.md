@@ -2,7 +2,7 @@
 
 ## O que significa neste kit
 
-**O modo recomendado não cria arquivos contendo prompts, mensagens, contexto, respostas do modelo ou decisões por item.** Processa esses dados em memória e grava somente os agregados que você escolheu conservar. Isso é minimização no consumidor, **não certificação de “zero retenção universal”**.
+**O modo recomendado não cria arquivos contendo prompts, mensagens, contexto ou respostas brutas do modelo.** Com recuperação autorizada, conserva temporariamente apenas enum/status por segmento, hashes opacos e progresso em `<work>.checkpoint`, fora dos exports. Textos permanecem em memória. `--ram-only` desativa esse estado e perde decisões após interrupção. Isso é minimização no consumidor, **não certificação de “zero retenção universal”**. Não usar o checkpoint sem autorização de retenção mínima.
 
 Histórico original, arquivo de entrada, chave CLIENT e agregados deliberadamente salvos continuam existindo. Python não certifica zeragem da RAM. Swap, hibernação, dumps, telemetria, backups e logs do sistema precisam de controles separados. Nada aqui altera discos, apaga históricos ou instala serviços.
 
@@ -25,7 +25,7 @@ A documentação do protocolo imediato descreve AES-GCM por consulta e encapsula
 - Em HTTPS remoto, exige também **`X-Relay-Content-Deleted: true`**. Ausente/falso: `privacy_confirmation_missing`, antes de ler o corpo.
 - O catálogo é verificado antes da primeira classificação. Catálogo 503, autenticação recusada ou confirmação ausente bloqueia o envio de mensagens ao classificador.
 - O header expressa a afirmação do aplicativo de que excluiu seu registro lógico. Não prova ausência de cópias, apagamento físico, versão do conector ou integridade de um servidor malicioso.
-- `keep_alive: 0` continua sendo enviado à classificação. Isso é uma solicitação ao backend, não garantia de zerar cache/memória do modelo.
+- Em lote, `keep_alive` é omitido por padrão para não solicitar descarregamento a cada chamada. `--keep-alive 0` conserva a solicitação explícita de descarregamento; `--keep-alive N` solicita segundos de retenção (`-1`: indefinida). A política efetiva é do servidor; nenhuma dessas opções garante zeragem de memória.
 - Chave CLIENT por arquivo privado, variável prevista pelo kit ou prompt local sem eco. Nunca em argumentos, chat, repositório, token AGENT ou credencial interna do backend.
 - Erros têm códigos fixos; não imprimem corpo remoto, chave ou texto analisado.
 
@@ -63,7 +63,7 @@ python3 -B cli.py private-analyze \
   --timezone UTC --max-classifier-calls 100 --allow-relay
 ```
 
-A pasta de saída precisa ser **nova**, fora do checkout e fora da árvore do perfil. O teto é do conjunto inteiro de segmentos/rubricas, verificado **antes de abrir chave/criar cliente**. Se o orçamento não couber, informe o bloqueio, ajuste conscientemente o teto ou selecione fontes/sessões autorizadas; não faça truncamento silencioso.
+A pasta de saída precisa ser **nova**, fora do checkout e fora da árvore do perfil, exceto ao retomar com `--resume`. Sem `--max-classifier-calls`, o orçamento é o plano completo, não 100. Quando explícito, o teto é do conjunto inteiro de segmentos/rubricas, verificado **antes de abrir chave/criar cliente**. Se não couber, informe o bloqueio; não faça truncamento silencioso.
 
 Opções úteis:
 
@@ -108,7 +108,9 @@ Pedidos e respostas legados não contêm necessariamente vínculos confiáveis d
 
 Para atualizar ao longo do tempo, execute novamente, conscientemente, em **outra pasta**, sobre o histórico atual autorizado. Cada relatório reprocessa seu escopo inteiro e inclui sua série semanal. Não some relatórios de janelas sobrepostas e não confunda mudança de modelo/rubrica/coorte com melhora do Hermes. Não há merge incremental com garantia exatamente uma vez, pois IDs/decisões por mensagem não são conservados. Verifique manualmente escopo/modelo antes de comparar execuções.
 
-Não há checkpoint nem retomada no modo privado: se interromper, decisões em memória são perdidas. Nova execução pode repetir inferência e gastar novamente; nunca é automática. Não confunda isso com os comandos legados, que preservam checkpoints por opção de auditoria.
+Para recuperar, repita o mesmo comando com `--resume`, preservando fonte integral, modelo, opções, exports e `<work>.checkpoint` (ou `--checkpoint-dir` explícito). Lock exclusivo e contrato congelado impedem mistura de campanhas. Cada envio é registrado como unknown antes da chamada; confirmações são sincronizadas antes da próxima. Unknown pausa globalmente, sem replay mesmo de pendentes posteriores. Só 429 HTTPS com headers de privacidade e corpo autenticado `error.type=capacity_busy`, `admission=not_started`, `limit_scope=concurrency`, `retry_after` inteiro 1..60 permite voltar a pending e tentar **apenas em retomada explícita**, nunca em loop automático. 429/503 isolados não provam rejeição anterior à execução.
+
+Ao concluir, arquivos, diretório dos exports e seu pai são sincronizados antes de criar `completed.json` e retirar `state.json` com labels. O marcador antirreplay permanece fora dos exports. Retomada concluída valida todos os hashes antes da limpeza idempotente; não precisa de API/chave. Não apague checkpoint nem use outra pasta para contornar incerteza. Isso não recupera decisões perdidas em campanhas RAM-only antigas. Leia [recuperação e limites](THROUGHPUT_RECOVERY.md).
 
 ## Comandos legados são persistentes
 

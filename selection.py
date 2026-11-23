@@ -14,7 +14,7 @@ import extractor as _e
 SOURCES = ('tasks', 'feedback', 'skills', 'memories')
 
 
-def _documents(home, sources, coverage):
+def _documents(home, sources, coverage, snapshot=None):
     """Descobre cada fonte separadamente, sem explorar a fonte não escolhida."""
     candidates = []
     if 'skills' in sources:
@@ -49,6 +49,8 @@ def _documents(home, sources, coverage):
         text = _e._read_document(path, relative, coverage)
         if text is None:
             continue
+        if snapshot is not None:
+            snapshot(('document', relative, text))
         coverage['sources_read'].append(relative)
         sections = _e._sections(text) if kind == 'memory' else [text]
         for index, section in enumerate(sections):
@@ -60,7 +62,7 @@ def _documents(home, sources, coverage):
     return items
 
 
-def _database(home, sources, session_ids, delegation, context_chars, coverage):
+def _database(home, sources, session_ids, delegation, context_chars, coverage, snapshot=None):
     """Consulta filtrada antes da projeção textual; nunca carrega tools/reasoning.
 
     mode=ro/query_only proíbem escrita de dados/esquema; BEGIN mantém uma
@@ -110,6 +112,10 @@ def _database(home, sources, session_ids, delegation, context_chars, coverage):
                      ' FROM messages m' + (' WHERE ' + ' AND '.join(where) if where else '') + ' ORDER BY m.id')
             for mid, sid, role, text, timestamp, size, is_delegated, title_value in db.execute(
                     query, [_e.MAX_FILE_BYTES] + parameters):
+                if snapshot is not None:
+                    # Hash the entire authorized SQL projection before redaction,
+                    # filtering/deduplication or context truncation, never tool text.
+                    snapshot(('message', mid, sid, role, text, timestamp, size, is_delegated, title_value))
                 label = role if role in ('user', 'assistant', 'tool', 'system') else 'other'
                 _e._count(coverage['messages_by_role'], label)
                 if role == 'assistant' and 'feedback' in sources:
@@ -161,7 +167,7 @@ def _database(home, sources, session_ids, delegation, context_chars, coverage):
 
 
 def extract_selected(home, *, sources=('tasks', 'skills', 'memories'),
-                     session_ids=(), delegation='all', context_chars=1200):
+                     session_ids=(), delegation='all', context_chars=1200, snapshot=None):
     """Retorna {items, coverage, selection}; argumentos inválidos geram ValueError.
 
     sources=() não lê fontes. session_ids=() significa todas as sessões;
@@ -204,8 +210,8 @@ def extract_selected(home, *, sources=('tasks', 'skills', 'memories'),
     items = []
     if not blocked:
         if {'tasks', 'feedback'} & set(sources):
-            items.extend(_database(home, sources, session_ids, delegation, context_chars, coverage))
-        items.extend(_documents(home, sources, coverage))
+            items.extend(_database(home, sources, session_ids, delegation, context_chars, coverage, snapshot))
+        items.extend(_documents(home, sources, coverage, snapshot))
     kinds = {'task': 'tasks', 'feedback': 'feedback', 'skill': 'skills', 'memory': 'memories'}
     for item in items:
         coverage['source_counts'][kinds[item['kind']]] += 1

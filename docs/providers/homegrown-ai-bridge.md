@@ -32,12 +32,15 @@ POST <base>/classifications recebe:
 {
   "model":"clef-flash-9b-q4-k-m",
   "state":"{\"tipo\":\"task\",\"contexto_auxiliar\":\"\",\"documento_para_classificar\":\"texto sintético\"}",
-  "questions":{"dominio":{"type":"choice","instructions":"...","criteria":{"pessoal":"...","profissional":"...","misto":"...","compartilhado":"...","indeterminado":"..."}}},
-  "keep_alive":0
+  "questions":{"dominio":{"type":"choice","instructions":"...","criteria":{"pessoal":"...","profissional":"...","misto":"...","compartilhado":"...","indeterminado":"..."}}}
 }
 ```
 
 Critérios reais/versionados: study.QUESTIONS. Resposta exige mesmo model e answers.dominio.choice/probabilities para os cinco rótulos; esquema, faixas e consistência são validados. Scores não são probabilidades calibradas. /chat/completions não substitui essa rota.
+
+O cliente omite `keep_alive` por padrão, inclusive em lote. Uma opção explícita
+`--keep-alive 0` envia zero; inteiros em segundos e `-1` são preservados, sem
+garantia de que o backend atenda. A API Python aceita `RelayClient(..., keep_alive=0)`.
 
 ## Transporte e falhas
 

@@ -9,7 +9,7 @@ DEFAULT_API_BASE_URL='https://homegrown-ai-bridge.lovable.app/api/public/v1'
 ERROR_HINTS={
     'privacy_confirmation_missing':'A API deve responder no-store e, em HTTPS remoto, X-Relay-Content-Deleted: true. Não remova a proteção nem use a fila de ócio; peça correção ao operador.',
     'privacy_endpoint_required':'Use somente o endpoint imediato /v1 com HTTPS remoto ou loopback local; a fila assíncrona/ócio de 48 horas não é permitida.',
-    'private_output_exists':'O modo efêmero não retoma nem sobrescreve campanhas. Escolha outra pasta de agregados se uma nova execução for realmente desejada.',
+    'private_output_exists':'Para retomar, preserve fonte, opções e checkpoint e use --resume. Nova pasta somente para nova campanha conscientemente autorizada, nunca para contornar incerteza.',
     'private_source_required':'Informe --home do perfil autorizado OU --input de eventos normalizados com --tenant; nunca ambos.',
     'timezone_data_missing':'Use --timezone UTC (sem dependências) ou instale os dados IANA: python -m pip install -r requirements-timezones.txt.',
     'pipeline_busy':'Outra execução usa esta pasta. Aguarde terminar antes de retomar ou regenerar.',
@@ -50,10 +50,14 @@ def parser():
     p.add_argument('--delegation', choices=['all','human','subagent'], default='human', help='Seleção modular: human exclui subagentes por padrão')
     p.add_argument('--context-chars', type=int, default=1200, help='Contexto auxiliar de feedback, 0 a 1200 caracteres')
     p.add_argument('--timeout',type=float,default=145)
+    p.add_argument('--keep-alive', type=int, default=None, help='Retenção solicitada ao backend em segundos (-1 indefinida, 0 descarrega); omitida por padrão em lote, sem garantia de atendimento pelo servidor')
     p.add_argument('--dry-run', action='store_true', help='Somente private-analyze: calcula plano sem chave, rede ou arquivos')
+    p.add_argument('--resume', action='store_true', help='Retoma private-analyze; valida fonte integral e contrato antes da chave/rede')
+    p.add_argument('--checkpoint-dir', help='Estado privado mínimo fora dos exports; padrão <work>.checkpoint')
+    p.add_argument('--ram-only', action='store_true', help='Sem recuperação: interrupção perde todas as decisões em RAM')
     p.add_argument('--cutoff',help='Corte YYYY-MM-DD do dashboard; somente feedback-all/feedback-report')
     p.add_argument('--timezone',default='America/Sao_Paulo',help='Calendário dos relatórios; UTC funciona sem base IANA, inclusive no Windows')
-    p.add_argument('--max-classifier-calls', type=int, default=100, help='quality-analyze: teto prévio de segmentos; padrão 100')
+    p.add_argument('--max-classifier-calls', type=int, default=None, help='Teto explícito de segmentos; private-analyze usa o plano completo, outros comandos usam 100')
     p.add_argument('--input', help='JSON de eventos normalizados autorizado, offline')
     p.add_argument('--tenant', help='Tenant exato autorizado; mistura é recusada')
     return p
@@ -83,6 +87,8 @@ def configured_client(args):
     from api_client import RelayClient
     # Validate destination and timeout BEFORE reading any secret file.
     privacy = {'require_privacy': True} if getattr(args, 'command', None) in ('private-analyze', 'privacy-check') else {}
+    if getattr(args, 'keep_alive', None) is not None:
+        privacy['keep_alive'] = args.keep_alive
     RelayClient(args.base_url,'validation-only-synthetic',timeout=args.timeout, **privacy)
     key=os.environ.get('HERMES_CLASSIFIER_API_KEY')
     if not key and args.key_file:
@@ -115,6 +121,8 @@ def select_model(client, requested):
 
 def main(argv=None):
     args=parser().parse_args(argv)
+    if args.max_classifier_calls is None and args.command != 'private-analyze':
+        args.max_classifier_calls = 100
     old_umask=os.umask(0o077)
     if args.command in ('run','classify-all','analyze','verify-analysis','feedback-all','quality-analyze','quality-smoke','private-analyze') and not args.allow_relay and not (args.command == 'private-analyze' and args.dry_run):
         print(json.dumps({'error':'relay_consent_required','hint':ERROR_HINTS['relay_consent_required']},ensure_ascii=False),file=sys.stderr)
@@ -122,6 +130,8 @@ def main(argv=None):
         return 2
     try:
         if args.dry_run and args.command != 'private-analyze':
+            raise ValueError('selection_invalid')
+        if (args.resume or args.checkpoint_dir or args.ram_only) and args.command != 'private-analyze':
             raise ValueError('selection_invalid')
         if args.command == 'private-analyze':
             from private_pipeline import execute

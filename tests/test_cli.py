@@ -141,7 +141,7 @@ class CliTests(unittest.TestCase):
                     self.assertTrue((work/'classification/summary.json').exists())
                     self.assertEqual(cli.main(argv),0)
                 self.assertEqual(len(calls),1)
-                self.assertEqual(calls[0]['keep_alive'],0)
+                self.assertNotIn('keep_alive', calls[0])
                 verify_args=['verify','--work',str(Path(t)/'verify'),'--base-url',f'http://127.0.0.1:{server.server_port}/v1','--model','clef-fixture','--key-file',str(key)]
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(cli.main(verify_args),1)

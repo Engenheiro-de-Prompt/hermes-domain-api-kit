@@ -11,7 +11,7 @@ RULES = {
     'token': re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-(?:proj-)?[A-Za-z0-9_-]{28,}|lr_(?:client|agent)[_-][A-Za-z0-9_-]{24,})\b'),
     'donor_path': re.compile(r'/home/(?:virtualis)(?:/|\b)|/mnt/(?:novo-volume)(?:/|\b)|/run/user/[0-9]+/credentials/|hermes-isolated[0-9]*-workspace'),
 }
-PRIVATE_BASENAMES = {'corpus.json', 'snapshot.json', 'manifest.json', 'pipeline.json', 'labels.json', 'report.json', 'narrative.json', 'privacy.json', 'dashboard.html', 'feedback.html', 'smoke-manifest.json', 'smoke-result.json'}
+PRIVATE_BASENAMES = {'state.json', 'completed.json', 'corpus.json', 'snapshot.json', 'manifest.json', 'pipeline.json', 'labels.json', 'report.json', 'narrative.json', 'privacy.json', 'dashboard.html', 'feedback.html', 'smoke-manifest.json', 'smoke-result.json'}
 BAD_SUFFIXES = ('.jsonl', '.csv', '.db', '.sqlite', '.sqlite3', '.zip', '.log', '.key', '.pem', '.wav', '.mp3', '.mp4')
 
 

@@ -76,7 +76,7 @@ class PrivatePipelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             source = self.source(root)
-            for options in (['--resume'], ['--no-redact'], ['--max-cost', '1'], ['--max-tokens', '1']):
+            for options in (['--no-redact'], ['--max-cost', '1'], ['--max-tokens', '1']):
                 with self.subTest(options=options), patch('cli.configured_client', side_effect=AssertionError('network_or_key_forbidden')):
                     rc, out, err = self.run_cli(['private-analyze', '--input', str(source), '--tenant', 'private-tenant', '--work', str(root / 'output'), '--allow-relay', '--timezone', 'UTC'] + options)
                 self.assertEqual(rc, 2)
@@ -193,10 +193,17 @@ class PrivatePipelineTests(unittest.TestCase):
                 source, output = self.source(root), root / 'output'
                 with patch.dict('os.environ', {'HERMES_CLASSIFIER_API_KEY': 'synthetic-client'}):
                     rc, out, err = self.run_cli(['private-analyze', '--input', str(source), '--tenant', 'private-tenant', '--work', str(output), '--allow-relay', '--base-url', f'http://127.0.0.1:{server.server_port}/v1', '--timezone', 'UTC'])
-                self.assertEqual(rc, 2)
+                # Durable mode retains a faithful partial report instead of
+                # discarding progress on a missing privacy confirmation.
+                self.assertEqual(rc, 1)
                 self.assertEqual(posts, [1])
-                self.assertFalse(output.exists())
-                self.assertIn('privacy_confirmation_missing', err)
+                report = json.loads((output / 'report.json').read_text())
+                self.assertFalse(report['complete'])
+                self.assertEqual(report['pause_reason'], 'privacy_confirmation_missing')
+                self.assertEqual(report['confirmed_classifier_calls'], 0)
+                self.assertEqual(report['unknown_classifier_calls'], 1)
+                self.assertEqual(report['pending_classifier_calls'], report['planned_classifier_calls'] - 1)
+                self.assertTrue(all(not row['distribution'] for row in report['rubrics'].values()))
                 self.assertNotIn('PRIVATE-CONTENT', out + err)
         finally:
             server.shutdown()

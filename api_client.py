@@ -68,6 +68,8 @@ class ClientError(Exception):
 
     def __init__(self, code):
         self.code = code
+        self.admission_not_started = False
+        self.retry_after = None
         super().__init__(code)
 
 
@@ -87,7 +89,7 @@ def _privacy_headers(getheader, *, remote):
 
 
 class RelayClient:
-    def __init__(self, base_url, key, timeout=145, *, require_privacy=False):
+    def __init__(self, base_url, key, timeout=145, *, require_privacy=False, keep_alive=None):
         self._parts = privacy_destination(base_url) if require_privacy else _destination(base_url)
         self.require_privacy = require_privacy
         self.privacy_failure = None
@@ -98,6 +100,9 @@ class RelayClient:
         if (type(timeout) not in (int, float) or timeout <= 0
                 or timeout > threading.TIMEOUT_MAX or not math.isfinite(timeout)):
             raise ClientError('invalid_timeout')
+        if keep_alive is not None and (type(keep_alive) is not int or keep_alive < -1):
+            raise ClientError('invalid_keep_alive')
+        self._keep_alive = keep_alive
         self._key = key
         self._timeout = timeout
 
@@ -108,9 +113,11 @@ class RelayClient:
         import json
 
         try:
-            body = json.dumps({'model': model, 'state': state, 'questions': questions,
-                               'keep_alive': 0}, ensure_ascii=False,
-                              allow_nan=False).encode('utf-8')
+            payload = {'model': model, 'state': state, 'questions': questions}
+            # Omission lets the server own campaign retention; explicit 0 is not omitted.
+            if self._keep_alive is not None:
+                payload['keep_alive'] = self._keep_alive
+            body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode('utf-8')
         except (TypeError, ValueError, UnicodeError, RecursionError):
             raise ClientError('invalid_payload') from None
         if len(body) > 1024 * 1024:
@@ -183,6 +190,30 @@ class RelayClient:
             })
             response = conn.getresponse()
             if not 200 <= response.status < 300:
+                # Only an authenticated HTTPS response with privacy confirmation
+                # and the exact pre-admission contract permits a future resume.
+                if response.status == 429 and self.require_privacy and parts.scheme == 'https':
+                    try:
+                        _privacy_headers(response.getheader, remote=True)
+                        raw = response.read(65537)
+                        remaining()
+                        result = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_object,
+                                            parse_constant=_reject_constant, parse_float=_finite_float) if len(raw) <= 65536 else None
+                        proof = result.get('error') if isinstance(result, dict) else None
+                        if (isinstance(proof, dict) and proof.get('type') == 'capacity_busy'
+                                and proof.get('admission') == 'not_started'
+                                and proof.get('limit_scope') == 'concurrency'
+                                and type(proof.get('retry_after')) is int
+                                and 1 <= proof['retry_after'] <= 60):
+                            error = ClientError('capacity_busy')
+                            error.admission_not_started = True
+                            error.retry_after = proof['retry_after']
+                            raise error
+                    except ClientError as error:
+                        if error.admission_not_started:
+                            raise
+                    except (ValueError, UnicodeError, RecursionError):
+                        pass
                 if self.require_privacy:
                     self.privacy_failure = f'http_{response.status}'
                 raise ClientError(f'http_{response.status}')

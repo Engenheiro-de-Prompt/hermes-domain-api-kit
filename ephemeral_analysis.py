@@ -55,7 +55,7 @@ def plan_calls(items, rubric, chunk_chars=2400):
     return _prepare(items, rubric, chunk_chars)[2]
 
 
-def classify(items, client, model, *, rubric, chunk_chars=2400, max_calls=100):
+def classify(items, client, model, *, rubric, chunk_chars=2400, max_calls=100, journal=None):
     """Return only provisional labels and local identity, never raw decisions."""
     items, rubric, calls = _prepare(items, rubric, chunk_chars)
     if (not isinstance(model, str) or not model.strip() or len(model) > 256
@@ -89,11 +89,18 @@ def classify(items, client, model, *, rubric, chunk_chars=2400, max_calls=100):
                 'context_truncated': item.get('context_truncated', False),
                 'segmento': index + 1, 'total_segmentos': total,
             })
-            try:
-                labels.append(_answer(client.classify(model, state, questions), model, rubric)['label'])
-            except Exception:
-                # Do not retain, stringify or log client exceptions/raw answers.
-                ok = False
+            if journal is not None:
+                label = journal.decision(lambda: _answer(client.classify(model, state, questions), model, rubric)['label'], rubric['criteria'])
+                if label is None:
+                    ok = False
+                else:
+                    labels.append(label)
+            else:
+                try:
+                    labels.append(_answer(client.classify(model, state, questions), model, rubric)['label'])
+                except Exception:
+                    # Explicit RAM-only legacy mode does not retain raw answers.
+                    ok = False
         label = rubric['unknown']
         if ok:
             label = (study.aggregate(labels) if rubric['aggregation'] == 'domain'

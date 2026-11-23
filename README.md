@@ -8,14 +8,16 @@
 python3 -B cli.py privacy-check --key-file "/caminho/privado/client.key"
 python3 -B cli.py private-analyze --home "/caminho/do/perfil-autorizado" \
   --work "/caminho/privado/agregados-novos" --key-file "/caminho/privado/client.key" \
-  --timezone UTC --max-classifier-calls 100 --allow-relay
+  --timezone UTC --allow-relay
 ```
 
-Executa finalidade, satisfação, correções e inferências auxiliares de qualidade, com teto global antes da chave. Grava somente agregados em `dashboard.html`, `feedback.html`, `report.json`, `narrative.json` e `privacy.json`. Não cria corpus, resposta bruta, decisão por item ou checkpoint. Exige perfil explícito e pasta nova fora dele/do checkout; não explora outros perfis, instala modelos ou agenda tarefas.
+Executa finalidade, satisfação, correções e inferências auxiliares de qualidade. Planeja o total antes da chave, sem teto artificial padrão; `--max-classifier-calls N` impõe um teto explícito. Grava agregados em `dashboard.html`, `feedback.html`, `report.json`, `narrative.json` e `privacy.json`. Com autorização para recuperação, conserva temporariamente apenas hashes opacos, enum/status por segmento e progresso em `<work>.checkpoint`, nunca textos, prompts ou respostas brutas. Exige perfil explícito e pasta nova fora dele/do checkout; não explora outros perfis, instala modelos ou agenda tarefas. Para política estrita sem decisões persistidas, use `--ram-only` (sem recuperação).
 
 **HTTPS remoto + `no-store` + `X-Relay-Content-Deleted: true` obrigatórios.** Sem confirmação, falha fechada. A fila de ócio/48 horas não é usada. Payloads somente em memória não apagam o histórico original, não cifram agregados, não provam ausência de swap/backups e não são E2EE nem apagamento físico universal. Agregados privados não são anônimos.
 
 **[Contrato, execução, evolução histórica e limites de privacidade](docs/PRIVACY.md)** · **[Prompt completo para outro Hermes](COMECE_AQUI.md)**. O exemplo offline abaixo não exige API; uma campanha real exige chave CLIENT e servidor imediato disponível. Os comandos históricos preservados no restante do README **são persistentes**, não substitutos desse modo privado.
+
+**Retomada:** preserve fonte integral, opções, exports e `<work>.checkpoint`; repita o mesmo comando com `--resume`. Confirmações não são reenviadas; resultado incerto pausa globalmente e nunca é repetido. Rejeição de capacidade comprovadamente anterior à execução fica pendente até retomada explícita. Veja [contrato de recuperação](docs/THROUGHPUT_RECOVERY.md). Decisões anteriormente perdidas em RAM não são recuperáveis. `keep_alive` é omitido em lote por padrão; `--keep-alive 0` permanece explícito.
 
 ## Novo: qualidade e resolução por tarefa, com evidências
 

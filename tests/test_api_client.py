@@ -115,7 +115,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(headers['X-Relay-Timeout'], '4')
         self.assertEqual(headers['Content-Type'], 'application/json')
         self.assertEqual(json.loads(body.decode('utf-8')), {
-            'model': 'model-a', 'state': {'text': 'olá'}, 'questions': ['q1'], 'keep_alive': 0,
+            'model': 'model-a', 'state': {'text': 'olá'}, 'questions': ['q1'],
         })
 
     def test_non_success_http_is_static_and_never_retried(self):
@@ -159,8 +159,8 @@ class ClientTests(unittest.TestCase):
                 client.classify('m', 'é' * (512 * 1024), [])
             self.assertEqual(caught.exception.code, 'payload_too_large')
             self.assertEqual(requests, [])
-            overhead = len(json.dumps({'model': 'm', 'state': '', 'questions': [],
-                                      'keep_alive': 0}, ensure_ascii=False).encode())
+            overhead = len(json.dumps({'model': 'm', 'state': '', 'questions': []},
+                                     ensure_ascii=False).encode())
             client.classify('m', 'a' * (1024 * 1024 - overhead), [])
             self.assertEqual(len(requests[0][3]), 1024 * 1024)
 

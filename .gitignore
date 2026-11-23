@@ -41,3 +41,5 @@ classification-manifest.json
 smoke-manifest.json
 smoke-result.json
 feedback.html
+state.json
+completed.json

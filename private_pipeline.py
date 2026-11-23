@@ -24,7 +24,7 @@ def _destination(args):
     repo = Path(__file__).resolve().parent
     if output == repo or repo in output.parents:
         raise ValueError('work_must_be_outside_repository')
-    if output.exists():
+    if output.exists() and not args.resume:
         raise ValueError('private_output_exists')
     if args.home:
         home = Path(args.home).expanduser().absolute()
@@ -73,12 +73,20 @@ def _collect(args):
                 items.append({'id': kind + '_' + str(i), 'kind': kind, 'text': event['text'],
                               'context': '', 'context_missing': True, 'context_truncated': False,
                               'provenance': [{'session_id': event['session_id'], 'message_id': event['event_id'], 'timestamp': event['timestamp']}]})
-        return items, events, args.tenant, data.get('as_of'), {'status': 'provided_events', 'source_counts': {'events': len(events)}, 'failure_count': 0}
+        import hashlib
+        return items, events, args.tenant, data.get('as_of'), {'status': 'provided_events', 'source_counts': {'events': len(events)}, 'failure_count': 0}, hashlib.sha256(raw).hexdigest()
     from selection import extract_selected
     if args.tenant:
         raise ValueError('selection_invalid')
+    import hashlib
+    identity = hashlib.sha256()
+    def snapshot(value):
+        encoded = canonical(value).encode('utf-8')
+        identity.update(len(encoded).to_bytes(8, 'big'))
+        identity.update(encoded)
     selected = extract_selected(args.home, sources=args.sources or ('tasks', 'feedback', 'skills', 'memories'),
-                                session_ids=args.session, delegation=args.delegation, context_chars=args.context_chars)
+                                session_ids=args.session, delegation=args.delegation, context_chars=args.context_chars,
+                                snapshot=snapshot)
     coverage = selected['coverage']
     if coverage.get('status') != 'ok':
         raise ValueError('incomplete_corpus')
@@ -86,7 +94,7 @@ def _collect(args):
     events = from_selected(selected, tenant_id=tenant, source_id='selected_profile')
     safe_coverage = {'status': coverage['status'], 'source_counts': coverage['source_counts'],
                      'failure_count': len(coverage.get('failures', []))}
-    return selected['items'], events, tenant, None, safe_coverage
+    return selected['items'], events, tenant, None, safe_coverage, identity.hexdigest()
 
 
 def _plans(items, events):
@@ -123,12 +131,12 @@ def _quality(events, tenant, as_of, labels, planned, *, model=None):
         task['classifications'] = [l for l in inferred if l['source_id'] == task['source_id'] and l['event_id'] in task['source_event_ids']]
     report['classifier'] = {
         'mode': 'classified' if inferred else 'offline', 'labels': len(inferred),
-        'review_required': len(inferred), 'indeterminate': sum(l['label_value'] in ('indeterminado', 'indeterminada') for l in inferred),
+        'review_required': len(inferred), 'indeterminate': sum(l['unknown_reason'] != 'classification_failed' and l['label_value'] in ('indeterminado', 'indeterminada') for l in inferred),
         'failed': sum(l['unknown_reason'] == 'classification_failed' for l in inferred),
         'estimated_full_campaign_calls': planned, 'eligible_event_labels': len(inferred),
         'score_type': 'not_retained', 'semantic_qualification': 'not_established',
         'monetary_cost': None, 'models': [model] if inferred and model else [],
-        'distribution': dict(Counter(l['label_name'] + ':' + l['label_value'] for l in inferred))}
+        'distribution': dict(Counter(l['label_name'] + ':' + l['label_value'] for l in inferred if l['unknown_reason'] != 'classification_failed'))}
     timestamps = [e['timestamp'] for e in events if e['timestamp'] is not None]
     def day(stamp):
         return datetime.fromtimestamp(stamp, timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
@@ -144,14 +152,21 @@ def _save(output, files):
         os.chmod(output, 0o700)
         if os.name == 'posix' and output.stat().st_mode & 0o077:
             raise ValueError('insecure_output_permissions')
+        from private_checkpoint import atomic_text, sync_directory
         for name, body in files.items():
-            # New exclusive private directory; the reusable helper rejects links/hardlinks.
-            analysis._write(output / name, body)
+            atomic_text(output / name, body)
+        sync_directory(output.parent)
     finally:
         os.umask(old)
 
 
 def execute(args):
+    from contextlib import ExitStack
+    with ExitStack() as cleanup:
+        return _execute(args, cleanup)
+
+
+def _execute(args, cleanup):
     import cli
     from ephemeral_analysis import classify, plan_calls
     from ephemeral_feedback import build as feedback_build
@@ -164,9 +179,39 @@ def execute(args):
     # Validate calendar before API/key; UTC needs no optional timezone package.
     from feedback_report import _timezone
     _timezone(args.timezone)
-    if type(args.max_classifier_calls) is not int or args.max_classifier_calls < 0:
+    if args.max_classifier_calls is not None and (type(args.max_classifier_calls) is not int or args.max_classifier_calls < 0):
         raise ValueError('classifier_budget_exceeded')
-    items, events, tenant, as_of, coverage = _collect(args)
+    # An input file is identified by ALL bytes (including fields redaction omits).
+    # Re-read around collection, fail closed on replacement/mutation; never copy it.
+    from study import digest
+    import hashlib
+    def source_identity():
+        if args.input:
+            path = Path(args.input).expanduser().absolute()
+            if any(p.is_symlink() for p in (path, *path.parents)):
+                raise ValueError('invalid_quality_input')
+            with path.open('rb') as stream:
+                before = os.fstat(stream.fileno())
+                raw = stream.read(16 * 1024 * 1024 + 1)
+                after = os.fstat(stream.fileno())
+            # Reading may legitimately update atime. Only identity, ownership,
+            # size and mutation timestamps belong to the snapshot guard.
+            def stable_stat(value):
+                return tuple(getattr(value, key) for key in (
+                    'st_dev', 'st_ino', 'st_mode', 'st_nlink', 'st_uid', 'st_gid',
+                    'st_size', 'st_mtime_ns', 'st_ctime_ns'))
+            if (len(raw) > 16 * 1024 * 1024
+                    or stable_stat(before) != stable_stat(after)
+                    or stable_stat(path.stat()) != stable_stat(after)):
+                raise ValueError('snapshot_integrity_failed')
+            return hashlib.sha256(raw).hexdigest()
+        return None
+    source_before = source_identity()
+    items, events, tenant, as_of, coverage, collected_identity = _collect(args)
+    if args.home and _collect(args) != (items, events, tenant, as_of, coverage, collected_identity):
+        raise ValueError('snapshot_integrity_failed')
+    if args.input and (source_identity() != source_before or collected_identity != source_before):
+        raise ValueError('snapshot_integrity_failed')
     from feedback_report import _date
     dates = [_date(item, timezone_name=args.timezone) for item in items if item.get('kind') == 'feedback']
     dates = [day for day in dates if day is not None]
@@ -174,6 +219,8 @@ def execute(args):
         raise ValueError('selection_invalid')
     plans = _plans(items, events)
     planned = sum(plan_calls(rows, rubric) for _, rubric, rows in plans)
+    if args.max_classifier_calls is None:
+        args.max_classifier_calls = planned
     if planned > args.max_classifier_calls and not args.dry_run:
         raise ValueError('classifier_budget_exceeded')
     # Validate event chronology before an irreversible external request.
@@ -186,13 +233,56 @@ def execute(args):
                          'network_used': False, 'payload_files_written': False,
                          'output_created': False, 'not_an_api_healthcheck': True}))
         return 0
-    client = cli.configured_client(args) if planned else None
-    model = cli.select_model(client, args.model) if client else None
-    labels = {name: classify(rows, client, model, rubric=rubric, max_calls=args.max_classifier_calls) if rows else []
+    if args.ram_only and (args.resume or args.checkpoint_dir):
+        raise ValueError('selection_invalid')
+    journal = None
+    if not args.ram_only:
+        from private_checkpoint import Journal
+        checkpoint = Path(args.checkpoint_dir).expanduser().absolute() if args.checkpoint_dir else output.with_name(output.name + '.checkpoint')
+        repo = Path(__file__).resolve().parent
+        if ('..' in checkpoint.parts or checkpoint == output or output in checkpoint.parents
+                or checkpoint in output.parents or checkpoint == repo or repo in checkpoint.parents):
+            raise ValueError('invalid_work')
+        if args.home:
+            home = Path(args.home).expanduser().resolve()
+            if checkpoint == home or home in checkpoint.parents or checkpoint in home.parents:
+                raise ValueError('invalid_work')
+        frozen = {'source': collected_identity, 'items': items, 'events': events, 'tenant': tenant,
+                  'as_of': as_of, 'coverage': coverage, 'home': str(Path(args.home).expanduser().absolute()) if args.home else None,
+                  'input_path': str(Path(args.input).expanduser().absolute()) if args.input else None,
+                  'rubrics': [r for _, r, _ in plans], 'model': args.model, 'endpoint': args.base_url,
+                  'cutoff': str(cutoff), 'timezone': args.timezone, 'sources': args.sources,
+                  'session': args.session, 'context': args.context_chars, 'delegation': args.delegation,
+                  'budget': args.max_classifier_calls, 'keep_alive': args.keep_alive,
+                  'output': str(output), 'pipeline_version': 2, 'chunk_chars': 2400}
+        identities = [(name, row, offset) for name, _, rows in plans for row in rows
+                      for offset in range(0, len(row['text']), 2400)]
+        allowed = [rubric['criteria'] for _, rubric, rows in plans for row in rows
+                   for _ in range(0, len(row['text']), 2400)]
+        journal = Journal(checkpoint, args.resume, frozen, identities, allowed)
+        cleanup.callback(journal.close)
+        if journal.done:
+            # Totals are NOT reconstructed decisions. Existing exports remain authoritative.
+            if not output.is_dir() or not all((output / name).is_file() for name in ('report.json', 'privacy.json', 'narrative.json', 'dashboard.html', 'feedback.html')):
+                raise ValueError('incomplete_result_artifacts')
+            expected_exports = journal.data.get('exports')
+            names = ('report.json', 'privacy.json', 'narrative.json', 'dashboard.html', 'feedback.html')
+            if (not isinstance(expected_exports, dict) or set(expected_exports) != set(names)
+                    or any((output / name).is_symlink() or hashlib.sha256((output / name).read_bytes()).hexdigest() != expected_exports[name] for name in names)):
+                raise ValueError('incomplete_result_artifacts')
+            journal.cleanup_completed()
+            print(canonical({'mode': 'private-analyze', 'complete': True, 'already_completed': True, 'network_used': False}))
+            return 0
+    need_client = planned and (journal is None or not journal.paused and any(r['status'] == 'pending' for r in journal.data['segments']))
+    client = cli.configured_client(args) if need_client else None
+    model = cli.select_model(client, args.model) if client else args.model
+    if journal is not None and client is not None:
+        journal.bind_model(model)
+    # With automatic model selection, a paused run cannot recover its literal model
+    # from the opaque checkpoint; no calls occur and labels remain reconstructable.
+    classification_model = model or 'checkpoint-restored'
+    labels = {name: classify(rows, client, classification_model, rubric=rubric, max_calls=args.max_classifier_calls, journal=journal) if rows else []
               for name, rubric, rows in plans}
-    if client is not None and client.privacy_failure is not None:
-        from api_client import ClientError
-        raise ClientError(client.privacy_failure)
     feedback = feedback_build(items, labels, timezone_name=args.timezone)
     feedback['observed_history'] = {'scope': 'selected_history_only',
         'first_date': str(min(dates)) if dates else None, 'last_date': str(max(dates)) if dates else None,
@@ -202,13 +292,13 @@ def execute(args):
     story = story_build(quality, tasks)
     failed = sum(row['status'] != 'ok' for rows in labels.values() for row in rows)
     rubric_counts = {name: {'items': len(rows), 'failed': sum(row['status'] != 'ok' for row in rows),
-                            'distribution': dict(Counter(row['label'] for row in rows))} for name, rows in labels.items()}
+                            'distribution': dict(Counter(row['label'] for row in rows if row['status'] == 'ok'))} for name, rows in labels.items()}
     remote = privacy_destination(args.base_url).scheme == 'https'
     privacy = {'version': 1, 'mode': 'memory_only_payloads', 'payload_files_written': False,
-               'checkpoints': False, 'automatic_retry': False, 'async_idle_queue': False,
+               'checkpoints': journal is not None, 'automatic_retry': False, 'async_idle_queue': False,
                'network_used': bool(planned), 'transport': 'https_certificate_verified' if remote else 'http_loopback_only',
                'remote_deletion_header_checked': bool(planned and remote), 'no_store_response_required': bool(planned),
-               'saved_content': 'deliberately_retained_aggregates_only', 'aggregates_are_anonymous': False,
+               'saved_content': 'aggregates_and_temporary_minimal_labels' if journal else 'deliberately_retained_aggregates_only', 'aggregates_are_anonymous': False,
                'original_history_deleted': False, 'physical_erasure_guaranteed': False,
                'python_memory_zeroization_guaranteed': False, 'os_swap_dumps_backups_audited': False,
                'end_to_end_encryption_guaranteed': False, 'upstream_database_independently_verified': False}
@@ -219,16 +309,54 @@ def execute(args):
                 'sources': args.sources or (['provided_events'] if args.input else ['tasks', 'feedback', 'skills', 'memories']),
                 'delegation': args.delegation, 'session_filter_count': len(args.session),
                 'history_identity_stored': False, 'cross_run_merge_supported': False}
-    report = {'version': 1, 'mode': 'private-analyze', 'analysis_contract': contract, 'planned_classifier_calls': planned,
+    confirmed = sum(r['status'] == 'ok' for r in journal.data['segments']) if journal else planned if not failed else 0
+    unknown = sum(r['status'] == 'unknown' for r in journal.data['segments']) if journal else 0
+    complete = failed == 0 and confirmed == planned
+    report = {'version': 1, 'mode': 'private-analyze', 'complete': complete,
+              'pause_reason': journal.failure_code if journal else None,
+              'confirmed_classifier_calls': confirmed, 'unknown_classifier_calls': unknown,
+              'pending_classifier_calls': planned - confirmed - unknown,
+              'analysis_contract': contract, 'planned_classifier_calls': planned,
               'classification_failures': failed, 'selection_coverage': coverage,
               'rubrics': rubric_counts, 'feedback': feedback, 'quality': quality, 'privacy': privacy}
     files = {'report.json': canonical(report) + '\n', 'narrative.json': canonical(story) + '\n',
              'privacy.json': canonical(privacy) + '\n', 'dashboard.html': quality_render(story),
              'feedback.html': feedback_render(feedback, cutoff)}
-    _save(output, files)
+    from html import escape
+    overview = ('<section aria-label="Cobertura da campanha"><h1>' + ('CONCLUÍDA' if complete else 'PARCIAL — não concluída')
+                + '</h1><p>Segmentos confirmados: ' + str(confirmed) + '/' + str(planned)
+                + '; incertos: ' + str(unknown) + '; pendentes: ' + str(planned - confirmed - unknown)
+                + '. Rótulos provisórios não qualificam o modelo.</p><ul>'
+                + ''.join('<li>' + escape(name) + ': ' + str(counts['items'] - counts['failed'])
+                          + '/' + str(counts['items']) + ' itens confirmados; falhas/não processados: '
+                          + str(counts['failed']) + '</li>' for name, counts in rubric_counts.items())
+                + '</ul></section>')
+    for name in ('dashboard.html', 'feedback.html'):
+        # Existing plots and all rubrics remain intact; status is visible above them.
+        import re
+        files[name] = re.sub(r'(<body\b[^>]*>)', lambda m: m[0] + overview, files[name], count=1)
+    if args.resume and output.exists():
+        from private_checkpoint import atomic_text
+        if any(p.is_symlink() for p in (output, *output.parents)):
+            raise ValueError('invalid_work')
+        for name, body in files.items():
+            atomic_text(output / name, body)
+    else:
+        _save(output, files)
+    if complete and journal is not None:
+        from private_checkpoint import sync_directory
+        # Barrier is mandatory even when output.mkdir happened in a prior run.
+        # Keep decisions until both file data and directory entries are durable.
+        for name in files:
+            with (output / name).open('rb') as stream:
+                os.fsync(stream.fileno())
+        sync_directory(output)
+        sync_directory(output.parent)
+        journal.finish({name: hashlib.sha256(body.encode('utf-8')).hexdigest() for name, body in files.items()})
     print(canonical({'mode': 'private-analyze', 'output': str(output), 'planned_classifier_calls': planned,
-                     'classification_failures': failed, 'payload_files_written': False}))
-    return 1 if failed else 0
+                     'classification_failures': failed, 'complete': complete,
+                     'pause_reason': journal.failure_code if journal else None, 'payload_files_written': False}))
+    return 0 if complete else 1
 
 
 def check(args):
