@@ -271,7 +271,10 @@ def _execute(args, cleanup):
                     or any((output / name).is_symlink() or hashlib.sha256((output / name).read_bytes()).hexdigest() != expected_exports[name] for name in names)):
                 raise ValueError('incomplete_result_artifacts')
             journal.cleanup_completed()
-            print(canonical({'mode': 'private-analyze', 'complete': True, 'already_completed': True, 'network_used': False}))
+            print(canonical({'mode': 'private-analyze', 'output': str(output),
+                             'artifacts': {'dashboard_html': str(output / 'dashboard.html'),
+                                           'feedback_html': str(output / 'feedback.html')},
+                             'complete': True, 'already_completed': True, 'network_used': False}))
             return 0
     need_client = planned and (journal is None or not journal.paused and any(r['status'] == 'pending' for r in journal.data['segments']))
     client = cli.configured_client(args) if need_client else None
@@ -356,6 +359,8 @@ def _execute(args, cleanup):
         sync_directory(output.parent)
         journal.finish({name: hashlib.sha256(body.encode('utf-8')).hexdigest() for name, body in files.items()})
     print(canonical({'mode': 'private-analyze', 'output': str(output), 'planned_classifier_calls': planned,
+                     'artifacts': {'dashboard_html': str(output / 'dashboard.html'),
+                                   'feedback_html': str(output / 'feedback.html')},
                      'classification_failures': failed, 'complete': complete,
                      'pause_reason': journal.failure_code if journal else None, 'payload_files_written': False}))
     return 0 if complete else 1

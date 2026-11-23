@@ -2,7 +2,7 @@
 
 ## Resultado esperado
 
-Classificar pedidos, skills e memórias de um único perfil autorizado em pessoal, profissional, misto, compartilhado e indeterminado. Entregar contagens, cobertura, falhas e arquivos privados, sem trocar o LLM principal nem instalar modelos/servidor no consumidor.
+Classificar pedidos, skills e memórias de um único perfil autorizado em pessoal, profissional, misto, compartilhado e indeterminado. No fluxo privado recomendado, gerar automaticamente e entregar os dashboards HTML executivo e de feedback, com contagens, cobertura e falhas. Não trocar o LLM principal nem instalar modelos/servidor no consumidor.
 
 ## Entrada e autorização
 
@@ -51,6 +51,9 @@ Extração é local; texto sanitizado passa pelo relay hospedado para inferênci
 ## Execução privada recomendada e publicação
 
 - Novos handoffs orientados a minimizar retenção usam `private-analyze` e `docs/PRIVACY.md`; os comandos anteriores continuam persistentes. Não criar export paralelo de textos para facilitar a análise.
+- **Aceite inclui o HTML, não apenas testes ou classificações.** O resultado JSON de `private-analyze` identifica `artifacts.dashboard_html` e `artifacts.feedback_html`, inclusive em retomada concluída. Verificar que ambos abrem e representam o resultado/cobertura antes de anunciar a entrega. O comando gera os arquivos localmente; não envia anexos nem publica URLs automaticamente.
+- Na resposta final, anexar os dois HTMLs separadamente, com nomes e descrição claros, pelo mecanismo de arquivos do canal autorizado. ZIP, código-fonte, JSON, logs ou contagem de testes não substituem esses anexos. Se o canal não permitir anexos, informar a limitação e os caminhos locais exatos; não inventar um link nem publicar dados privados para contorná-la. Geração local e entrega ao usuário são etapas distintas: só afirmar envio/recebimento conforme a evidência disponível.
+- Em execução parcial, entregar os HTMLs como **PARCIAIS**, com falhas/desconhecidos visíveis, sem anunciar análise completa. Em `--dry-run` não há dashboard gerado. Se a retomada detectar export ausente/alterado, informar o bloqueio, sem recriar campanha ou repetir inferências para obter um anexo.
 - `privacy-check` consulta só catálogo e headers. HTTPS remoto exige `no-store` e `X-Relay-Content-Deleted: true` em cada resposta; nunca remover a proteção para contornar serviço indisponível. Não usar fila de ócio/48 horas.
 - Payloads e agregação são em memória; recuperação autorizada conserva temporariamente apenas enum/status por segmento, hashes opacos e progresso em `<work>.checkpoint`, fora dos exports/checkout/perfil. Nenhum texto, resposta bruta, ID original ou dimensão livre é persistido nesse estado. Nunca ligar inferência a fatos observados sem evidência independente.
 - `--resume` valida fonte integral e contrato antes de chave/rede, nunca repete confirmados ou unknown; incerteza pausa globalmente. Só 429 HTTPS com privacidade e prova autenticada `capacity_busy`/`not_started`/`concurrency` permite manter pending e retomar explicitamente. Após exports duráveis, labels temporários são removidos e marcador antirreplay permanece. `--ram-only` não tem recuperação. Cada atualização longitudinal usa pasta nova; relatórios sobrepostos não são somados.

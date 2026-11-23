@@ -98,6 +98,12 @@ Não combine `--home` e `--input`. A entrada fornecida já existe por escolha do
 
 Permissões Unix: diretório 0700, arquivos 0600. No Windows, proteja a pasta por ACLs da conta. **Não há cifra caseira ou senha embutida.** Se a política exige criptografia em repouso, use volume previamente protegido (por exemplo, BitLocker/LUKS) e confira backups. O kit não pode certificar a configuração desse volume nem a integridade do sistema operacional.
 
+### Contrato de entrega dos dashboards
+
+`private-analyze` gera os dois HTMLs automaticamente no mesmo fluxo de análise, sem comando adicional de renderização. O JSON final informa os caminhos absolutos em `artifacts.dashboard_html` e `artifacts.feedback_html`. Em `--resume` de campanha concluída, os mesmos caminhos são devolvidos somente depois da validação dos exports, sem nova inferência nem reescrita dos resultados. Em execução parcial, os caminhos identificam painéis parciais e `complete` permanece `false`; `--dry-run` não gera HTML nem anuncia artefatos.
+
+O comando não envia arquivos por Telegram/email nem os hospeda. Cabe ao consumidor verificar abertura/conteúdo e anexar os dois HTMLs de forma identificável no canal autorizado. Testes verdes, um ZIP ou um caminho impresso não comprovam recebimento do dashboard. Se o transporte não suportar arquivos, declarar a limitação e fornecer os caminhos locais, sem publicar resultados privados para criar um link. Não anunciar a entrega completa sem fechar essa etapa.
+
 Não saem texto, contexto, mensagens, hashes por item, IDs de sessão/tarefa/tenant, scores por item, resposta bruta ou nomes livres de workflow/agente. As dimensões livres são suprimidas neste modo para evitar transformá-las em vazamento por rótulo de gráfico. Datas são agregadas em dias/semanas. **Agregados pequenos ainda podem reidentificar e revelar informações sensíveis; não são anônimos nem destinados automaticamente ao GitHub.**
 
 ## Qualidade, histórico ao longo do tempo e limites
