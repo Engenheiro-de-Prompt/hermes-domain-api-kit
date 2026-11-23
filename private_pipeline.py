@@ -348,7 +348,9 @@ def _execute(args, cleanup):
         # Barrier is mandatory even when output.mkdir happened in a prior run.
         # Keep decisions until both file data and directory entries are durable.
         for name in files:
-            with (output / name).open('rb') as stream:
+            # Windows _commit/FlushFileBuffers requires write access to flush.
+            # Exports were just created privately; do not weaken the barrier.
+            with (output / name).open('rb+') as stream:
                 os.fsync(stream.fileno())
         sync_directory(output)
         sync_directory(output.parent)

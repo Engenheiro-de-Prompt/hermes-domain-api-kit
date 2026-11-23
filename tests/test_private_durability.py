@@ -49,6 +49,27 @@ class DurabilityTests(unittest.TestCase):
             self.assertFalse(state.exists())
             self.assertEqual(self.invoke(source, work, None, ['--resume'])[0], 0)
 
+    def test_completed_exports_sync_with_writable_handles_required_by_windows(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve(); source = self.source(root); work = root / 'exports'
+            original_open, original_fsync = Path.open, os.fsync
+            exports = {}
+            def observed_open(path, *args, **kwargs):
+                stream = original_open(path, *args, **kwargs)
+                if path.parent == work:
+                    exports[stream.fileno()] = stream
+                return stream
+            def windows_flush(fd):
+                stream = exports.get(fd)
+                if stream is not None and not stream.closed and not stream.writable():
+                    raise OSError('synthetic Windows flush requires write access')
+                return original_fsync(fd)
+            with patch.object(Path, 'open', observed_open), patch('os.fsync', side_effect=windows_flush):
+                rc, _, err = self.invoke(source, work, self.client())
+            self.assertEqual(rc, 0, err.getvalue())
+            self.assertTrue((root / 'exports.checkpoint' / 'completed.json').is_file())
+            self.assertFalse((root / 'exports.checkpoint' / 'state.json').exists())
+
     def test_atomic_text_explicit_lf(self):
         with tempfile.TemporaryDirectory() as temp:
             original = os.fdopen
