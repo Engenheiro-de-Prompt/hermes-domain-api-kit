@@ -19,7 +19,10 @@ a lacuna fica explícita e segmentos independentes continuam; um parcial não
 
 ## Evidências reproduzidas
 
-- Suíte isolada de publicação: **298 testes aprovados**, sem skips.
+- Suíte isolada de publicação: **299 testes aprovados**, sem skips. A fixture
+  normaliza o temporário do sistema (inclusive aliases de macOS) antes de
+  entregar o caminho ao Journal; a proteção de produção contra links permanece
+  inalterada e ativa.
 - CLI + HTTP loopback, **10.560 classificações sintéticas**: parada inicial
   após **304 confirmadas**, cinco HTTP 504 injetados, retomada na mesma campanha,
   **10.560 confirmadas**, zero reenvios do prefixo e zero novas chamadas depois

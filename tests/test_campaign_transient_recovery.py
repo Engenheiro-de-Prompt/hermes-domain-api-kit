@@ -11,8 +11,14 @@ from private_checkpoint import Journal
 
 class TransientRecoveryTests(unittest.TestCase):
     def journal(self, root, resume=False):
-        return Journal(root / 'journal', resume, {'contract': 'unchanged'},
+        return Journal(root.resolve() / 'journal', resume, {'contract': 'unchanged'},
                        ['one', 'two', 'three'], [{'yes': 'yes'}] * 3)
+
+    def test_fixture_canonicalizes_system_temp_before_strict_journal(self):
+        canonical = Path('/synthetic/canonical-temp')
+        with patch.object(Path, 'resolve', return_value=canonical), patch(__name__ + '.Journal') as journal:
+            self.journal(Path('/synthetic/temp-alias'))
+        self.assertEqual(journal.call_args.args[0], canonical / 'journal')
 
     def test_504_retries_same_segment_and_commits_once(self):
         with tempfile.TemporaryDirectory() as tmp:
