@@ -17,7 +17,7 @@ Executa finalidade, satisfação, correções e inferências auxiliares de quali
 
 **[Contrato, execução, evolução histórica e limites de privacidade](docs/PRIVACY.md)** · **[Prompt completo para outro Hermes](COMECE_AQUI.md)**. O exemplo offline abaixo não exige API; uma campanha real exige chave CLIENT e servidor imediato disponível. Os comandos históricos preservados no restante do README **são persistentes**, não substitutos desse modo privado.
 
-**Retomada:** preserve fonte integral, opções, exports e `<work>.checkpoint`; repita o mesmo comando com `--resume`. Confirmações não são reenviadas; resultado incerto pausa globalmente e nunca é repetido. Rejeição de capacidade comprovadamente anterior à execução fica pendente até retomada explícita. Veja [contrato de recuperação](docs/THROUGHPUT_RECOVERY.md). Decisões anteriormente perdidas em RAM não são recuperáveis. `keep_alive` é omitido em lote por padrão; `--keep-alive 0` permanece explícito.
+**Retomada:** preserve fonte integral, opções, exports e `<work>.checkpoint`; repita o mesmo comando com `--resume`. Confirmações não são reenviadas. Para lotes longos com repetição de classificação autorizada, use `--retry-transient`; para recuperar a antiga incerteza, acrescente `--recover-uncertain` uma vez. A política at-least-once e o procedimento sem edição de progresso estão no [contrato de recuperação](docs/THROUGHPUT_RECOVERY.md). Sem opt-in, incerteza continua bloqueante. Decisões anteriormente perdidas em RAM não são recuperáveis. `keep_alive` é omitido em lote por padrão; `--keep-alive 0` permanece explícito.
 
 ## Novo: qualidade e resolução por tarefa, com evidências
 

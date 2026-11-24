@@ -12,6 +12,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def smoke_command(work, key, port):
+    return [sys.executable, '-B', str(ROOT / 'cli.py'), 'quality-smoke',
+            '--work', str(work), '--base-url', f'http://127.0.0.1:{port}/v1',
+            '--key-file', str(key), '--max-classifier-calls', '7', '--allow-relay',
+            # A stalled local fixture must terminate before the subprocess watchdog.
+            # Do not inherit the production CLI's 145s per-request allowance.
+            '--timeout', '0.5']
+
+
 class SmokeTests(unittest.TestCase):
     def test_smoke_exports_disagreement_and_resumes_without_replaying(self):
         calls = []
@@ -36,9 +45,7 @@ class SmokeTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as td:
                 key = Path(td).resolve() / 'key'; key.write_text('synthetic-only'); key.chmod(0o600)
                 work = Path(td).resolve() / 'campaign'
-                command = [sys.executable, '-B', str(ROOT / 'cli.py'), 'quality-smoke',
-                    '--work', str(work), '--base-url', f'http://127.0.0.1:{server.server_port}/v1',
-                    '--key-file', str(key), '--max-classifier-calls', '7', '--allow-relay']
+                command = smoke_command(work, key, server.server_port)
                 env = dict(os.environ); env.pop('HERMES_CLASSIFIER_API_KEY', None)
                 first = subprocess.run(command, capture_output=True, text=True, env=env, timeout=30)
                 self.assertEqual(first.returncode, 1, first.stderr)

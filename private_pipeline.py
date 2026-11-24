@@ -174,6 +174,18 @@ def _execute(args, cleanup):
     from feedback_pipeline import _cutoff
     from quality_story import build as story_build
     from quality_dashboard import render as quality_render
+    import math
+    retry = getattr(args, 'retry_transient', False)
+    recover = getattr(args, 'recover_uncertain', False)
+    retry_attempts = getattr(args, 'retry_attempts', 6)
+    retry_backoff = getattr(args, 'retry_backoff', 1)
+    if (type(retry_attempts) is not int or not 1 <= retry_attempts <= 100
+            or type(retry_backoff) not in (int, float) or not math.isfinite(retry_backoff)
+            or not 0 <= retry_backoff <= 60
+            or recover and not (retry and args.resume)
+            or retry and args.ram_only
+            or not retry and (retry_attempts != 6 or retry_backoff != 1)):
+        raise ValueError('invalid_retry_policy')
     output = _destination(args)
     cutoff = _cutoff(args.cutoff)
     # Validate calendar before API/key; UTC needs no optional timezone package.
@@ -276,11 +288,22 @@ def _execute(args, cleanup):
                                            'feedback_html': str(output / 'feedback.html')},
                              'complete': True, 'already_completed': True, 'network_used': False}))
             return 0
-    need_client = planned and (journal is None or not journal.paused and any(r['status'] == 'pending' for r in journal.data['segments']))
+    retry_can_resume = False
+    if journal is not None and retry and not journal.done:
+        unknown = {r['hash'] for r in journal.data['segments'] if r['status'] == 'unknown'}
+        retry_can_resume = recover or not (unknown - set(journal.data.get('recovery', {}).get('retryable', [])))
+    need_client = planned and (journal is None or
+        (not journal.paused or retry_can_resume) and any(r['status'] != 'ok' for r in journal.data['segments']))
     client = cli.configured_client(args) if need_client else None
     model = cli.select_model(client, args.model) if client else args.model
     if journal is not None and client is not None:
         journal.bind_model(model)
+    if journal is not None and retry:
+        # Enabling legacy replay occurs only AFTER an authenticated catalog and
+        # frozen-model match; it never requires hand-editing the checkpoint.
+        journal.enable_retry(max_attempts=retry_attempts, backoff=retry_backoff,
+                             recover_uncertain=bool(recover and client is not None),
+                             progress=cli.progress_report)
     # With automatic model selection, a paused run cannot recover its literal model
     # from the opaque checkpoint; no calls occur and labels remain reconstructable.
     classification_model = model or 'checkpoint-restored'
@@ -298,9 +321,9 @@ def _execute(args, cleanup):
                             'distribution': dict(Counter(row['label'] for row in rows if row['status'] == 'ok'))} for name, rows in labels.items()}
     remote = privacy_destination(args.base_url).scheme == 'https'
     privacy = {'version': 1, 'mode': 'memory_only_payloads', 'payload_files_written': False,
-               'checkpoints': journal is not None, 'automatic_retry': False, 'async_idle_queue': False,
-               'network_used': bool(planned), 'transport': 'https_certificate_verified' if remote else 'http_loopback_only',
-               'remote_deletion_header_checked': bool(planned and remote), 'no_store_response_required': bool(planned),
+               'checkpoints': journal is not None, 'automatic_retry': retry, 'async_idle_queue': False,
+               'network_used': client is not None, 'transport': 'https_certificate_verified' if remote else 'http_loopback_only',
+               'remote_deletion_header_checked': bool(client is not None and remote), 'no_store_response_required': bool(planned),
                'saved_content': 'aggregates_and_temporary_minimal_labels' if journal else 'deliberately_retained_aggregates_only', 'aggregates_are_anonymous': False,
                'original_history_deleted': False, 'physical_erasure_guaranteed': False,
                'python_memory_zeroization_guaranteed': False, 'os_swap_dumps_backups_audited': False,
@@ -316,7 +339,8 @@ def _execute(args, cleanup):
     unknown = sum(r['status'] == 'unknown' for r in journal.data['segments']) if journal else 0
     complete = failed == 0 and confirmed == planned
     report = {'version': 1, 'mode': 'private-analyze', 'complete': complete,
-              'pause_reason': journal.failure_code if journal else None,
+              'recovery': journal.recovery_stats() if journal else {'policy': 'ram_only_no_recovery'},
+              'pause_reason': journal.failure_code if journal and not complete else None,
               'confirmed_classifier_calls': confirmed, 'unknown_classifier_calls': unknown,
               'pending_classifier_calls': planned - confirmed - unknown,
               'analysis_contract': contract, 'planned_classifier_calls': planned,
@@ -362,7 +386,8 @@ def _execute(args, cleanup):
                      'artifacts': {'dashboard_html': str(output / 'dashboard.html'),
                                    'feedback_html': str(output / 'feedback.html')},
                      'classification_failures': failed, 'complete': complete,
-                     'pause_reason': journal.failure_code if journal else None, 'payload_files_written': False}))
+                     'pause_reason': journal.failure_code if journal and not complete else None,
+                     'recovery': report['recovery'], 'payload_files_written': False}))
     return 0 if complete else 1
 
 

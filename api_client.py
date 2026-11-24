@@ -70,6 +70,8 @@ class ClientError(Exception):
         self.code = code
         self.admission_not_started = False
         self.retry_after = None
+        self.retryable = False
+        self.may_have_executed = False
         super().__init__(code)
 
 
@@ -89,9 +91,11 @@ def _privacy_headers(getheader, *, remote):
 
 
 class RelayClient:
-    def __init__(self, base_url, key, timeout=145, *, require_privacy=False, keep_alive=None):
+    def __init__(self, base_url, key, timeout=145, *, require_privacy=False, keep_alive=None,
+                 allow_transient_retry=False):
         self._parts = privacy_destination(base_url) if require_privacy else _destination(base_url)
         self.require_privacy = require_privacy
+        self.allow_transient_retry = allow_transient_retry
         self.privacy_failure = None
         if (not isinstance(key, str) or not key or not key.isascii()
                 or any(ord(c) <= 32 or ord(c) == 127 for c in key)
@@ -135,12 +139,23 @@ class RelayClient:
         response = None
         expired = threading.Event()
 
+        def failure(code):
+            error = ClientError(code)
+            # Permission for the caller to journal another at-least-once attempt,
+            # never evidence of rejection before execution and never an auto-retry.
+            if (self.allow_transient_retry is True and method == 'POST'
+                    and route == '/classifications'
+                    and code in ('http_502', 'http_503', 'http_504', 'timeout', 'transport_error')):
+                error.retryable = True
+                error.may_have_executed = True
+            elif self.require_privacy:
+                self.privacy_failure = code
+            return error
+
         def remaining():
             left = deadline - time.monotonic()
             if left <= 0:
-                if self.require_privacy:
-                    self.privacy_failure = 'timeout'
-                raise ClientError('timeout')
+                raise failure('timeout')
             return left
 
         try:
@@ -214,9 +229,7 @@ class RelayClient:
                             raise
                     except (ValueError, UnicodeError, RecursionError):
                         pass
-                if self.require_privacy:
-                    self.privacy_failure = f'http_{response.status}'
-                raise ClientError(f'http_{response.status}')
+                raise failure(f'http_{response.status}')
             if self.require_privacy:
                 try:
                     _privacy_headers(response.getheader, remote=parts.scheme == 'https')
@@ -241,9 +254,7 @@ class RelayClient:
             return result
         except (OSError, http.client.HTTPException):
             code = 'timeout' if expired.is_set() or time.monotonic() >= deadline else 'transport_error'
-            if self.require_privacy:
-                self.privacy_failure = code
-            raise ClientError(code) from None
+            raise failure(code) from None
         finally:
             if timer is not None:
                 timer.cancel()

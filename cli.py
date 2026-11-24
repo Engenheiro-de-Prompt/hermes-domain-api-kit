@@ -55,6 +55,10 @@ def parser():
     p.add_argument('--resume', action='store_true', help='Retoma private-analyze; valida fonte integral e contrato antes da chave/rede')
     p.add_argument('--checkpoint-dir', help='Estado privado mínimo fora dos exports; padrão <work>.checkpoint')
     p.add_argument('--ram-only', action='store_true', help='Sem recuperação: interrupção perde todas as decisões em RAM')
+    p.add_argument('--retry-transient', action='store_true', help='private-analyze: autoriza repetição at-least-once de 502/503/504 e falhas de transporte; confirmações nunca são reenviadas')
+    p.add_argument('--recover-uncertain', action='store_true', help='Com --resume --retry-transient: autoriza repetir apenas tentativas antigas incertas da mesma campanha')
+    p.add_argument('--retry-attempts', type=int, default=6, help='Tentativas por segmento nesta execução (1..100); após esgotar, preserva a lacuna e continua os independentes')
+    p.add_argument('--retry-backoff', type=float, default=1, help='Espera inicial em segundos (0..60), exponencial até 60s; não altera timeout da API')
     p.add_argument('--cutoff',help='Corte YYYY-MM-DD do dashboard; somente feedback-all/feedback-report')
     p.add_argument('--timezone',default='America/Sao_Paulo',help='Calendário dos relatórios; UTC funciona sem base IANA, inclusive no Windows')
     p.add_argument('--max-classifier-calls', type=int, default=None, help='Teto explícito de segmentos; private-analyze usa o plano completo, outros comandos usam 100')
@@ -89,6 +93,8 @@ def configured_client(args):
     privacy = {'require_privacy': True} if getattr(args, 'command', None) in ('private-analyze', 'privacy-check') else {}
     if getattr(args, 'keep_alive', None) is not None:
         privacy['keep_alive'] = args.keep_alive
+    if getattr(args, 'retry_transient', False):
+        privacy['allow_transient_retry'] = True
     RelayClient(args.base_url,'validation-only-synthetic',timeout=args.timeout, **privacy)
     key=os.environ.get('HERMES_CLASSIFIER_API_KEY')
     if not key and args.key_file:
@@ -129,6 +135,8 @@ def main(argv=None):
         os.umask(old_umask)
         return 2
     try:
+        if (args.retry_transient or args.recover_uncertain or args.retry_attempts != 6 or args.retry_backoff != 1) and args.command != 'private-analyze':
+            raise ValueError('selection_invalid')
         if args.dry_run and args.command != 'private-analyze':
             raise ValueError('selection_invalid')
         if (args.resume or args.checkpoint_dir or args.ram_only) and args.command != 'private-analyze':

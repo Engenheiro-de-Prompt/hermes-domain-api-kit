@@ -24,7 +24,57 @@ Execute com fonte e retenção autorizadas, `--work` novo fora do perfil/checkou
 rubricas permanecem independentes. Zero elegíveis de uma rubrica não autoriza
 fabricar eventos. Labels inferidos são provisórios, não fatos ou homologação.
 
-## Retomar sem replay
+## Recuperação resiliente autorizada (recomendada para lotes longos)
+
+O consumidor pode optar por **at-least-once** com `--retry-transient`. Isso não
+prova que um 504 deixou de executar: autoriza repetir somente a classificação,
+que não realiza ações externas. Pode haver execução/custo adicional e a nova
+inferência pode escolher outro rótulo; apenas a resposta validada e confirmada
+entra uma única vez no denominador e nos painéis. Não é exactly-once no servidor.
+
+Para a campanha antiga travada, use o **mesmo comando, mesma fonte e mesmas
+pastas**, acrescentando:
+
+```sh
+--resume --retry-transient --recover-uncertain
+```
+
+Não apague nem edite o checkpoint. O kit valida fonte, contrato, catálogo e
+modelo antes de reabrir as tentativas incertas. Os resultados `ok` permanecem
+intactos e não são reenviados. `--recover-uncertain` é a autorização explícita
+para incertezas antigas, cujo motivo não era persistido; não é necessário para
+lacunas transitórias já marcadas pela política nova. Não autoriza mudar perfil,
+modelo, seleção, endpoint, orçamento lógico ou destino.
+
+Em campanhas novas autorizadas para repetição, acrescente `--retry-transient`
+ao comando normal. Padrão: seis tentativas por segmento, espera de 1, 2, 4, 8 e
+16 segundos; `--retry-attempts` (1..100) e `--retry-backoff` (0..60 s) permitem
+ajuste. A espera cresce até 60 s e respeita a dica autenticada de capacidade.
+Cada tentativa tem write-ahead e contadores duráveis antes da rede.
+
+502/503/504, timeout e falha de transporte podem repetir. 429 só repete com a
+prova autenticada de não admissão descrita abaixo. Autenticação, privacidade,
+JSON/schema inválido, disco/checkpoint e divergência de contrato continuam
+bloqueantes. Não existe um retry escondido no transporte.
+
+Se todas as tentativas transitórias de um segmento falharem, o kit preserva
+essa lacuna e continua os segmentos independentes, em todas as rubricas. O
+resultado continua **PARCIAL**, nunca sucesso inventado. `--resume
+--retry-transient` tenta somente as lacunas elegíveis e os pendentes; o marcador
+de conclusão exige tudo confirmado. Não existe garantia de conclusão se a API
+permanecer indisponível. Depois de corrigir indisponibilidade prolongada,
+retome a mesma campanha; não use pasta paralela para contornar o estado.
+
+`report.json.recovery` separa tentativas, repetições, reenvios de incertos e
+códigos de erro, com escopo `since_retry_policy_enabled` (não inventa tentativas
+históricas). `max-classifier-calls` continua sendo orçamento de segmentos
+lógicos; retries podem aumentar chamadas/custo e aparecem separadamente.
+Progresso seguro em stderr traz somente contagens, a cada 25 confirmações e nas
+mudanças de retry/adiamento. Textos, contexto, IDs e respostas brutas não são
+conservados. O protocolo imediato e seus headers de privacidade continuam
+obrigatórios; retry não garante deleção no servidor de uma tentativa sem resposta.
+
+## Política estrita sem `--retry-transient`: retomar sem replay
 
 Preserve **fonte integral, todas as opções, modelo, URL, exports e checkpoint**.
 Repita exatamente o comando original adicionando `--resume`. Não crie pasta
